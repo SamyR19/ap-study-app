@@ -97,3 +97,28 @@ export async function updatePassword(newPassword: string) {
 export function onAuthStateChange(callback: (event: string, session: unknown) => void) {
   return supabase.auth.onAuthStateChange(callback);
 }
+
+// ============================================
+// OTP VERIFICATION
+// ============================================
+
+export async function verifyOTP(email: string, token: string) {
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: 'signup',
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function resendOTP(email: string) {
+  const { data, error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+  });
+
+  if (error) throw error;
+  return data;
+}
