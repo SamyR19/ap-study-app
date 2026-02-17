@@ -138,6 +138,11 @@ Add more: `npx shadcn@latest add [component-name]`
 - ✅ Type definitions for all entities
 - ✅ AP CSA topics (57 topics across 4 units)
 - ✅ Database schema with RLS
+- ✅ Build passing (ESLint + TypeScript)
 - 🔄 Practice flow (MCQ/FRQ pages) - Next
 - 🔄 Progress tracking
 - 🔄 Code editor integration
+
+## Latest Commit
+
+`6513b22` - Add design system, landing page, auth, and dashboard
