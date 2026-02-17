@@ -275,3 +275,70 @@ export function CodeEditor({
     </div>
   );
 }
+
+// Simple code editor without toolbar (for assessments, previews, etc.)
+interface SimpleCodeEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  language?: string;
+  className?: string;
+  readOnly?: boolean;
+}
+
+export function SimpleCodeEditor({
+  value,
+  onChange,
+  language = 'java',
+  className,
+  readOnly = false,
+}: SimpleCodeEditorProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleEditorMount: OnMount = (editor, monaco) => {
+    monaco.editor.defineTheme('warm', warmTheme);
+    monaco.editor.setTheme('warm');
+    if (!readOnly) {
+      editor.focus();
+    }
+  };
+
+  const handleChange: OnChange = (newValue) => {
+    onChange(newValue || '');
+  };
+
+  return (
+    <div className={cn('h-full', className)}>
+      <Editor
+        height="100%"
+        language={language}
+        value={value}
+        onChange={handleChange}
+        onMount={handleEditorMount}
+        options={{
+          fontSize: 14,
+          fontFamily: 'JetBrains Mono, monospace',
+          minimap: { enabled: false },
+          lineNumbers: 'on',
+          roundedSelection: true,
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          padding: { top: 16, bottom: 16 },
+          tabSize: 4,
+          insertSpaces: true,
+          wordWrap: 'on',
+          folding: true,
+          lineHeight: 1.6,
+          renderLineHighlight: 'line',
+          cursorBlinking: 'smooth',
+          cursorSmoothCaretAnimation: 'on',
+          smoothScrolling: true,
+          readOnly,
+        }}
+        loading={
+          <div className="flex items-center justify-center h-full bg-cream-50">
+            <div className="text-charcoal-light">Loading editor...</div>
+          </div>
+        }
+      />
+    </div>
+  );
+}

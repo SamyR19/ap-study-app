@@ -123,7 +123,7 @@ export default function SignupPage() {
 
     try {
       await verifyOTP(email, otpString);
-      router.push('/dashboard');
+      router.push('/onboarding');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid verification code');
       // Clear OTP on error
