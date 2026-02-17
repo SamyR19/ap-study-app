@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Ace AI logo">
+  <defs>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d3d7da"/>
+      <stop offset="100%" stop-color="#8f9498"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#metal)" d="M128 22c4 0 8 2 10 6l79 162c4 8-2 18-11 18h-43c-6 0-11-4-13-9l-21-46h-3l-20 46c-2 5-7 9-13 9H50c-9 0-15-10-11-18L118 28c2-4 6-6 10-6zm0 52-43 90h22l21-47 21 47h22l-43-90z"/>
+  <path fill="url(#metal)" d="M89 130l33 18 72-52c6-4 13 3 9 9l-16 27a12 12 0 0 1-4 4l-54 39c-4 3-10 3-14 0l-35-22c-6-4-6-13 0-17 3-2 6-2 9-1z"/>
+</svg>
