@@ -39,15 +39,21 @@ ap-study-app/
 │   ├── (dashboard)/         # Protected dashboard routes
 │   │   ├── layout.tsx       # Dashboard layout with sidebar
 │   │   ├── dashboard/page.tsx
+│   │   ├── practice/[topicId]/page.tsx  # MCQ + FRQ practice
+│   │   ├── progress/page.tsx            # Progress tracking
+│   │   ├── settings/page.tsx            # User settings
 │   │   └── subjects/
 │   │       ├── page.tsx     # All subjects list
 │   │       └── [subjectId]/page.tsx  # Subject detail + topics
+│   ├── api/
+│   │   ├── execute-code/route.ts  # Judge0 code execution
+│   │   └── grade-frq/route.ts     # OpenAI FRQ grading
 │   ├── auth/callback/       # OAuth callback handler
 │   ├── globals.css          # Global styles + design system
 │   ├── layout.tsx           # Root layout
 │   └── page.tsx             # Landing page
 ├── components/
-│   ├── ui/                  # shadcn/ui components (13 installed)
+│   ├── ui/                  # shadcn/ui components (15 installed)
 │   ├── landing/             # Landing page sections
 │   │   ├── Header.tsx
 │   │   ├── Hero.tsx
@@ -55,9 +61,26 @@ ap-study-app/
 │   │   ├── Pricing.tsx
 │   │   ├── FAQ.tsx
 │   │   └── Footer.tsx
-│   └── dashboard/           # Dashboard components
-│       ├── Sidebar.tsx
-│       └── TopicCard.tsx
+│   ├── dashboard/           # Dashboard components
+│   │   ├── Sidebar.tsx
+│   │   └── TopicCard.tsx
+│   ├── practice/            # Practice components
+│   │   ├── QuestionDisplay.tsx
+│   │   ├── AnswerChoices.tsx
+│   │   ├── FeedbackPanel.tsx
+│   │   ├── FRQFeedbackPanel.tsx
+│   │   ├── PracticeHeader.tsx
+│   │   └── Confetti.tsx
+│   ├── progress/            # Progress components
+│   │   ├── ProgressBar.tsx
+│   │   ├── ActivityFeed.tsx
+│   │   ├── MasteryChart.tsx
+│   │   └── StreakCalendar.tsx
+│   ├── settings/            # Settings components
+│   │   ├── SettingsSection.tsx
+│   │   └── SubscriptionCard.tsx
+│   ├── CodeEditor.tsx       # Monaco editor wrapper
+│   └── ConsoleOutput.tsx    # Console output panel
 ├── lib/
 │   ├── utils.ts             # cn() helper
 │   ├── supabase.ts          # Supabase client + auth helpers
@@ -67,7 +90,9 @@ ap-study-app/
 │   ├── index.ts             # Core TypeScript types
 │   └── subjects.ts          # AP subject configurations (25 subjects)
 ├── data/
-│   └── topics.ts            # AP CSA topics (57 topics, 4 units)
+│   ├── topics.ts            # AP CSA topics (57 topics, 4 units)
+│   ├── mcq-bank.ts          # 100 MCQ questions (AP CSA)
+│   └── frq-bank.ts          # 13 FRQ questions with rubrics
 ├── supabase/
 │   └── schema.sql           # Database schema with RLS
 └── public/
@@ -114,7 +139,7 @@ ap-study-app/
 
 ## shadcn/ui Components
 
-Installed: button, card, input, label, dropdown-menu, dialog, progress, tabs, select, avatar, badge, separator, skeleton
+Installed: button, card, input, label, dropdown-menu, dialog, progress, tabs, select, avatar, badge, separator, skeleton, accordion, switch
 
 Add more: `npx shadcn@latest add [component-name]`
 
@@ -138,10 +163,42 @@ Add more: `npx shadcn@latest add [component-name]`
 - ✅ Type definitions for all entities
 - ✅ AP CSA topics (57 topics across 4 units)
 - ✅ Database schema with RLS
+- ✅ Practice page (MCQ mode with keyboard shortcuts, FRQ mode with Monaco editor)
+- ✅ Progress tracking page (streak calendar, mastery charts, activity feed, achievements)
+- ✅ Settings page (Profile, Preferences, Subscription, Account tabs)
+- ✅ MCQ question bank (100 questions across 10 AP CSA topics)
+- ✅ FRQ question bank (13 questions with rubrics, test cases, sample solutions)
+- ✅ API routes (code execution via Judge0, FRQ grading via OpenAI)
 - ✅ Build passing (ESLint + TypeScript)
-- 🔄 Practice flow (MCQ/FRQ pages) - Next
-- 🔄 Progress tracking
-- 🔄 Code editor integration
+- 🔄 Connect practice to actual question banks
+- 🔄 Real-time progress tracking with Supabase
+- 🔄 Stripe payment integration
+
+## Environment Variables
+
+```bash
+# .env.local
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_JUDGE0_API_URL=https://ce.judge0.com  # Free, no API key needed
+OPENAI_API_KEY=your_openai_api_key  # For FRQ grading
+```
+
+## API Routes
+
+### POST /api/execute-code
+Execute code via Judge0 CE. Rate limited to 10 requests/minute.
+```typescript
+body: { code: string, language: 'java' | 'python' | 'javascript' | 'cpp' }
+response: { output: string, error?: string, status: string }
+```
+
+### POST /api/grade-frq
+Grade FRQ submissions via OpenAI GPT-4o-mini.
+```typescript
+body: { code: string, question: FRQQuestion, testResults: TestResult[] }
+response: { score: number, maxScore: number, rubricScores: [], overallFeedback: string, ... }
+```
 
 ## Latest Commit
 

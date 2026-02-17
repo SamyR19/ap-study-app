@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Star } from 'lucide-react';
 
@@ -52,9 +53,11 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="mt-9"
           >
-            <Button className="text-lg rounded-2xl px-11 py-[18px] h-auto bg-charcoal text-white hover:bg-charcoal/90 font-medium">
-              Start Practicing Free
-            </Button>
+            <Link href="/signup">
+              <Button className="text-lg rounded-2xl px-11 py-[18px] h-auto bg-charcoal text-white hover:bg-charcoal/90 font-medium">
+                Start Practicing Free
+              </Button>
+            </Link>
           </motion.div>
 
           {/* Rating */}

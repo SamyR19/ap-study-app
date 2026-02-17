@@ -53,12 +53,16 @@ export function Header() {
 
         {/* CTA Buttons */}
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="rounded-[14px] px-5 py-3 text-base font-medium border-charcoal">
-            Log In
-          </Button>
-          <Button className="rounded-[14px] px-5 py-3 text-base font-medium bg-charcoal text-white hover:bg-charcoal/90">
-            Get Started
-          </Button>
+          <Link href="/login">
+            <Button variant="outline" className="rounded-[14px] px-5 py-3 text-base font-medium border-charcoal">
+              Log In
+            </Button>
+          </Link>
+          <Link href="/signup">
+            <Button className="rounded-[14px] px-5 py-3 text-base font-medium bg-charcoal text-white hover:bg-charcoal/90">
+              Get Started
+            </Button>
+          </Link>
         </div>
       </nav>
     </header>
