@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -20,7 +19,6 @@ import {
   Check,
   BookOpen,
   User,
-  School,
   ClipboardList,
   Brain,
   Loader2,
@@ -173,118 +171,72 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen gradient-bg-hero">
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            {steps.map((step, index) => {
-              const Icon = step.icon;
-              const isActive = step.id === currentStep;
-              const isCompleted = index < currentStepIndex;
-
-              return (
-                <div key={step.id} className="flex items-center">
-                  <div className="flex flex-col items-center">
-                    <motion.div
-                      initial={false}
-                      animate={{
-                        scale: isActive ? 1.1 : 1,
-                        backgroundColor: isCompleted
-                          ? '#6B9E78'
-                          : isActive
-                          ? '#E07856'
-                          : '#E8E4DD',
-                      }}
-                      className={cn(
-                        'w-12 h-12 rounded-full flex items-center justify-center transition-colors',
-                        isActive || isCompleted ? 'text-white' : 'text-charcoal-light'
-                      )}
-                    >
-                      {isCompleted ? (
-                        <Check className="w-5 h-5" />
-                      ) : (
-                        <Icon className="w-5 h-5" />
-                      )}
-                    </motion.div>
-                    <span
-                      className={cn(
-                        'text-xs mt-2 font-medium',
-                        isActive ? 'text-charcoal' : 'text-charcoal-light'
-                      )}
-                    >
-                      {step.title}
-                    </span>
-                  </div>
-                  {index < steps.length - 1 && (
-                    <div
-                      className={cn(
-                        'w-16 md:w-24 h-1 mx-2 rounded-full transition-colors',
-                        index < currentStepIndex ? 'bg-success' : 'bg-cream-300'
-                      )}
-                    />
-                  )}
-                </div>
-              );
-            })}
+    <div className="min-h-screen bg-cream-50">
+      <div className="max-w-2xl mx-auto px-6 py-16">
+        {/* Progress Bar */}
+        <div className="mb-12">
+          <div className="h-1 bg-cream-200 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-primary-500 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${((currentStepIndex + 1) / steps.length) * 100}%` }}
+              transition={{ duration: 0.3 }}
+            />
           </div>
+          <p className="text-sm text-charcoal-light mt-2">
+            Step {currentStepIndex + 1} of {steps.length}
+          </p>
         </div>
 
-        {/* Content Card */}
-        <Card className="bg-white rounded-2xl shadow-xl p-8 md:p-10">
+        {/* Content */}
+        <div className="bg-white rounded-2xl shadow-sm border border-cream-200 p-8 md:p-12">
           <AnimatePresence mode="wait">
             {/* Step 1: Select AP Classes */}
             {currentStep === 'classes' && (
               <motion.div
                 key="classes"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
               >
-                <div className="text-center mb-8">
-                  <h1 className="text-2xl font-bold text-charcoal">
-                    Which AP classes are you taking?
-                  </h1>
-                  <p className="mt-2 text-charcoal-light">
-                    Select all that apply. More subjects coming soon!
-                  </p>
-                </div>
+                <h1 className="text-3xl font-bold text-charcoal mb-2">
+                  Which AP classes are you taking?
+                </h1>
+                <p className="text-charcoal-light mb-8">
+                  Select all that apply. More subjects coming soon!
+                </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
                   {apClasses.map((apClass) => {
                     const isSelected = data.apClasses.includes(apClass.id);
                     return (
-                      <motion.button
+                      <button
                         key={apClass.id}
                         onClick={() => apClass.available && toggleClass(apClass.id)}
                         disabled={!apClass.available}
-                        whileHover={apClass.available ? { scale: 1.02 } : {}}
-                        whileTap={apClass.available ? { scale: 0.98 } : {}}
                         className={cn(
-                          'relative p-4 rounded-xl border-2 text-left transition-all',
+                          'w-full p-4 rounded-xl border text-left transition-all flex items-center gap-4',
                           apClass.available
                             ? isSelected
                               ? 'border-primary-500 bg-primary-50'
-                              : 'border-cream-300 hover:border-cream-400 bg-white'
-                            : 'border-cream-200 bg-cream-100 opacity-60 cursor-not-allowed'
+                              : 'border-cream-300 hover:border-charcoal-light/40 bg-white'
+                            : 'border-cream-200 bg-cream-100 opacity-50 cursor-not-allowed'
                         )}
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{apClass.icon}</span>
-                          <div className="flex-1">
-                            <p className="font-medium text-charcoal">{apClass.name}</p>
-                            {!apClass.available && (
-                              <p className="text-xs text-charcoal-muted">Coming Soon</p>
-                            )}
-                          </div>
-                          {isSelected && (
-                            <div className="w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center">
-                              <Check className="w-4 h-4 text-white" />
-                            </div>
+                        <span className="text-2xl">{apClass.icon}</span>
+                        <div className="flex-1">
+                          <p className="font-medium text-charcoal">{apClass.name}</p>
+                          {!apClass.available && (
+                            <p className="text-xs text-charcoal-light">Coming Soon</p>
                           )}
                         </div>
-                      </motion.button>
+                        {isSelected && (
+                          <div className="w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                      </button>
                     );
                   })}
                 </div>
@@ -295,27 +247,27 @@ export default function OnboardingPage() {
             {currentStep === 'profile' && (
               <motion.div
                 key="profile"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
               >
-                <div className="text-center mb-8">
-                  <h1 className="text-2xl font-bold text-charcoal">Tell us about yourself</h1>
-                  <p className="mt-2 text-charcoal-light">
-                    This helps us personalize your learning experience
-                  </p>
-                </div>
+                <h1 className="text-3xl font-bold text-charcoal mb-2">
+                  Tell us about yourself
+                </h1>
+                <p className="text-charcoal-light mb-8">
+                  This helps us personalize your learning experience.
+                </p>
 
-                <div className="space-y-5 max-w-md mx-auto">
+                <div className="space-y-6">
                   {/* Grade Level */}
-                  <div className="space-y-2">
-                    <Label className="text-charcoal font-medium">Grade Level</Label>
+                  <div>
+                    <Label className="text-sm text-charcoal font-medium mb-2 block">Grade Level</Label>
                     <Select
                       value={data.gradeLevel}
                       onValueChange={(value) => updateData({ gradeLevel: value })}
                     >
-                      <SelectTrigger className="h-11 rounded-xl border-cream-300 bg-cream-100">
+                      <SelectTrigger className="h-12 rounded-xl border-cream-300 bg-cream-50 focus:border-charcoal">
                         <SelectValue placeholder="Select your grade" />
                       </SelectTrigger>
                       <SelectContent>
@@ -329,13 +281,13 @@ export default function OnboardingPage() {
                   </div>
 
                   {/* Age */}
-                  <div className="space-y-2">
-                    <Label className="text-charcoal font-medium">Age</Label>
+                  <div>
+                    <Label className="text-sm text-charcoal font-medium mb-2 block">Age</Label>
                     <Select
                       value={data.age}
                       onValueChange={(value) => updateData({ age: value })}
                     >
-                      <SelectTrigger className="h-11 rounded-xl border-cream-300 bg-cream-100">
+                      <SelectTrigger className="h-12 rounded-xl border-cream-300 bg-cream-50 focus:border-charcoal">
                         <SelectValue placeholder="Select your age" />
                       </SelectTrigger>
                       <SelectContent>
@@ -349,29 +301,26 @@ export default function OnboardingPage() {
                   </div>
 
                   {/* Birthday */}
-                  <div className="space-y-2">
-                    <Label className="text-charcoal font-medium">Birthday</Label>
+                  <div>
+                    <Label className="text-sm text-charcoal font-medium mb-2 block">Birthday</Label>
                     <Input
                       type="date"
                       value={data.birthday}
                       onChange={(e) => updateData({ birthday: e.target.value })}
-                      className="h-11 rounded-xl border-cream-300 bg-cream-100 focus:border-primary-500"
+                      className="h-12 rounded-xl border-cream-300 bg-cream-50 focus:border-charcoal"
                     />
                   </div>
 
                   {/* High School */}
-                  <div className="space-y-2">
-                    <Label className="text-charcoal font-medium">High School</Label>
-                    <div className="relative">
-                      <School className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-charcoal-light" />
-                      <Input
-                        type="text"
-                        placeholder="Enter your high school name"
-                        value={data.highSchool}
-                        onChange={(e) => updateData({ highSchool: e.target.value })}
-                        className="h-11 pl-10 rounded-xl border-cream-300 bg-cream-100 focus:border-primary-500 placeholder:text-charcoal-muted"
-                      />
-                    </div>
+                  <div>
+                    <Label className="text-sm text-charcoal font-medium mb-2 block">High School</Label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. Lincoln High School"
+                      value={data.highSchool}
+                      onChange={(e) => updateData({ highSchool: e.target.value })}
+                      className="h-12 rounded-xl border-cream-300 bg-cream-50 focus:border-charcoal placeholder:text-charcoal-light/50"
+                    />
                   </div>
                 </div>
               </motion.div>
@@ -381,40 +330,35 @@ export default function OnboardingPage() {
             {currentStep === 'units' && (
               <motion.div
                 key="units"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
               >
-                <div className="text-center mb-8">
-                  <h1 className="text-2xl font-bold text-charcoal">
-                    What have you learned so far?
-                  </h1>
-                  <p className="mt-2 text-charcoal-light">
-                    Select the units you&apos;ve already covered in class
-                  </p>
-                </div>
+                <h1 className="text-3xl font-bold text-charcoal mb-2">
+                  What have you learned so far?
+                </h1>
+                <p className="text-charcoal-light mb-8">
+                  Select the units you&apos;ve already covered in class.
+                </p>
 
                 <div className="space-y-3">
-                  {units.map((unit, index) => {
+                  {units.map((unit) => {
                     const isSelected = data.completedUnits.includes(unit.id.toString());
                     return (
-                      <motion.button
+                      <button
                         key={unit.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
                         onClick={() => toggleUnit(unit.id.toString())}
                         className={cn(
-                          'w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-4',
+                          'w-full p-4 rounded-xl border text-left transition-all flex items-center gap-4',
                           isSelected
                             ? 'border-primary-500 bg-primary-50'
-                            : 'border-cream-300 hover:border-cream-400 bg-white'
+                            : 'border-cream-300 hover:border-charcoal-light/40 bg-white'
                         )}
                       >
                         <div
                           className={cn(
-                            'w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg',
+                            'w-10 h-10 rounded-lg flex items-center justify-center font-bold',
                             isSelected
                               ? 'bg-primary-500 text-white'
                               : 'bg-cream-200 text-charcoal'
@@ -424,19 +368,17 @@ export default function OnboardingPage() {
                         </div>
                         <div className="flex-1">
                           <p className="font-medium text-charcoal">{unit.name}</p>
-                          <p className="text-sm text-charcoal-light">
-                            {unit.topics} topics
-                          </p>
+                          <p className="text-sm text-charcoal-light">{unit.topics} topics</p>
                         </div>
                         {isSelected && (
                           <Check className="w-5 h-5 text-primary-500" />
                         )}
-                      </motion.button>
+                      </button>
                     );
                   })}
                 </div>
 
-                <p className="text-center text-sm text-charcoal-muted mt-6">
+                <p className="text-center text-sm text-charcoal-light mt-6">
                   Don&apos;t worry if you haven&apos;t started yet - just click Next!
                 </p>
               </motion.div>
@@ -446,102 +388,86 @@ export default function OnboardingPage() {
             {currentStep === 'assessment' && (
               <motion.div
                 key="assessment"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3 }}
-                className="text-center"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
               >
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-                  className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-6"
-                >
-                  <Sparkles className="w-10 h-10 text-primary-500" />
-                </motion.div>
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-14 h-14 bg-primary-100 rounded-2xl flex items-center justify-center">
+                    <Sparkles className="w-7 h-7 text-primary-500" />
+                  </div>
+                </div>
 
-                <h1 className="text-2xl font-bold text-charcoal mb-3">
-                  Let&apos;s See Where You&apos;re At!
+                <h1 className="text-3xl font-bold text-charcoal mb-2">
+                  Ready for a quick assessment?
                 </h1>
-                <p className="text-charcoal-light mb-8 max-w-md mx-auto">
-                  We&apos;ll give you a quick 15-question assessment mixing multiple choice
-                  and free response questions to understand your current skill level.
+                <p className="text-charcoal-light mb-8">
+                  We&apos;ll give you 15 questions to understand your skill level.
                 </p>
 
-                <div className="bg-cream-100 rounded-xl p-6 mb-8 max-w-md mx-auto">
-                  <h3 className="font-semibold text-charcoal mb-4">Assessment Details</h3>
-                  <div className="space-y-3 text-left">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
-                        <span className="text-primary-600 font-bold">15</span>
-                      </div>
-                      <span className="text-charcoal">Questions total</span>
+                <div className="bg-cream-50 rounded-xl p-6 mb-8 space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-white border border-cream-200 flex items-center justify-center">
+                      <span className="text-charcoal font-bold">15</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                        <span className="text-blue-600 font-bold">10</span>
-                      </div>
-                      <span className="text-charcoal">Multiple choice questions</span>
+                    <span className="text-charcoal">Questions total</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-white border border-cream-200 flex items-center justify-center">
+                      <span className="text-charcoal font-bold">10</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
-                        <span className="text-green-600 font-bold">5</span>
-                      </div>
-                      <span className="text-charcoal">Free response questions</span>
+                    <span className="text-charcoal">Multiple choice</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-white border border-cream-200 flex items-center justify-center">
+                      <span className="text-charcoal font-bold">5</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                        <span className="text-amber-600 font-bold">~</span>
-                      </div>
-                      <span className="text-charcoal">Takes about 20-30 minutes</span>
-                    </div>
+                    <span className="text-charcoal">Free response</span>
                   </div>
                 </div>
 
                 {data.completedUnits.length > 0 && (
                   <p className="text-sm text-charcoal-light mb-6">
-                    Questions will cover Units{' '}
-                    {data.completedUnits.sort((a, b) => Number(a) - Number(b)).join(', ')}
+                    Covering Units {data.completedUnits.sort((a, b) => Number(a) - Number(b)).join(', ')}
                   </p>
                 )}
 
-                <Button
-                  onClick={handleStartAssessment}
-                  disabled={isLoading}
-                  className="bg-primary-500 hover:bg-primary-600 text-white rounded-xl px-8 h-12 text-lg"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Preparing...
-                    </>
-                  ) : (
-                    <>
-                      Start Assessment
-                      <ArrowRight className="w-5 h-5 ml-2" />
-                    </>
-                  )}
-                </Button>
-
-                <button
-                  onClick={() => router.push('/dashboard')}
-                  className="block mx-auto mt-4 text-sm text-charcoal-light hover:text-charcoal transition-colors"
-                >
-                  Skip for now
-                </button>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={handleStartAssessment}
+                    disabled={isLoading}
+                    className="flex-1 bg-charcoal hover:bg-charcoal/90 text-white rounded-xl h-12"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Preparing...
+                      </>
+                    ) : (
+                      'Start Assessment'
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push('/dashboard')}
+                    className="border-cream-300 text-charcoal hover:bg-cream-50 rounded-xl h-12"
+                  >
+                    Skip
+                  </Button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
 
           {/* Navigation Buttons */}
           {currentStep !== 'assessment' && (
-            <div className="flex justify-between mt-8 pt-6 border-t border-cream-200">
+            <div className="flex justify-between mt-10 pt-6 border-t border-cream-200">
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={handleBack}
                 disabled={currentStepIndex === 0}
-                className="border-cream-300 text-charcoal hover:bg-cream-100 rounded-xl"
+                className="text-charcoal-light hover:text-charcoal hover:bg-transparent"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
@@ -550,14 +476,14 @@ export default function OnboardingPage() {
               <Button
                 onClick={handleNext}
                 disabled={!canProceed()}
-                className="bg-primary-500 hover:bg-primary-600 text-white rounded-xl"
+                className="bg-charcoal hover:bg-charcoal/90 text-white rounded-xl px-6"
               >
-                Next
+                Continue
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
           )}
-        </Card>
+        </div>
       </div>
     </div>
   );

@@ -1,3 +1,5 @@
+'use client';
+
 import { Sidebar } from '@/components/dashboard/Sidebar';
 
 export default function DashboardLayout({
@@ -7,24 +9,18 @@ export default function DashboardLayout({
 }) {
   // In a real app, you'd fetch the user from Supabase here
   const mockUser = {
-    name: 'Student',
+    name: 'Samy Rabah',
     email: 'student@example.com',
     avatar_url: '',
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-cream-50">
       <Sidebar user={mockUser} />
 
-      {/* Main Content */}
-      <main className="md:ml-64 min-h-screen">
-        {/* Mobile top padding for header */}
-        <div className="md:hidden h-16" />
-
-        {/* Content */}
-        <div className="max-w-[1200px] mx-auto p-4 md:p-8">
-          {children}
-        </div>
+      {/* Main Content - solid color background */}
+      <main className="ml-64 min-h-screen transition-all duration-300">
+        {children}
       </main>
     </div>
   );

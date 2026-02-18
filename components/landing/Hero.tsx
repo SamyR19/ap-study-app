@@ -1,11 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Star } from 'lucide-react';
+import { AuthModal } from '@/components/auth/AuthModal';
 
 export function Hero() {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
   return (
     <section className="gradient-bg-hero pt-[138px] pb-0 px-8">
       <div className="max-w-[1300px] mx-auto">
@@ -53,12 +56,16 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="mt-9"
           >
-            <Link href="/signup">
-              <Button className="text-lg rounded-2xl px-11 py-[18px] h-auto bg-charcoal text-white hover:bg-charcoal/90 font-medium">
-                Start Practicing Free
-              </Button>
-            </Link>
+            <Button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="text-lg rounded-2xl px-11 py-[18px] h-auto bg-charcoal text-white hover:bg-charcoal/90 font-medium"
+            >
+              Start Practicing Free
+            </Button>
           </motion.div>
+
+          {/* Auth Modal */}
+          <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
 
           {/* Rating */}
           <motion.div

@@ -2,35 +2,58 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { signOut } from '@/lib/supabase';
 import {
   Home,
-  Code,
-  TrendingUp,
-  BookOpen,
-  Settings,
+  Users,
+  FileText,
+  Folder,
+  Plus,
+  MessageSquare,
+  HelpCircle,
   LogOut,
-  Menu,
-  X,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface NavItem {
+  id: string;
   label: string;
-  href: string;
+  href?: string;
   icon: React.ElementType;
+  children?: { label: string; href: string }[];
 }
 
-const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: Home },
-  { label: 'Practice', href: '/practice', icon: Code },
-  { label: 'Progress', href: '/progress', icon: TrendingUp },
-  { label: 'Subjects', href: '/subjects', icon: BookOpen },
-  { label: 'Settings', href: '/settings', icon: Settings },
+const mainNavItems: NavItem[] = [
+  { id: 'home', label: 'Home', href: '/dashboard', icon: Home },
+  { id: 'study-groups', label: 'Study Groups', href: '/study-groups', icon: Users },
+  {
+    id: 'class',
+    label: 'Class',
+    icon: FileText,
+    children: [
+      { label: 'My Classes', href: '/classes' },
+      { label: 'Join Class', href: '/classes/join' },
+    ]
+  },
+  {
+    id: 'library',
+    label: 'Your library',
+    icon: Folder,
+    children: [
+      { label: 'Study sets', href: '/library/study-sets' },
+      { label: 'Practice tests', href: '/library/practice-tests' },
+      { label: 'Study guides', href: '/library/study-guides' },
+    ]
+  },
+  { id: 'create', label: 'Create', href: '/create', icon: Plus },
+  { id: 'ai-chat', label: 'AI Chat', href: '/ai-chat', icon: MessageSquare },
 ];
+
 
 interface SidebarProps {
   user?: {
@@ -43,7 +66,8 @@ interface SidebarProps {
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   const handleSignOut = async () => {
     try {
@@ -54,116 +78,159 @@ export function Sidebar({ user }: SidebarProps) {
     }
   };
 
-  const SidebarContent = () => (
-    <>
-      {/* Logo */}
-      <div className="flex items-center gap-3 mb-8">
-        <Image src="/aceai-logo.svg" alt="AceAI" width={40} height={40} />
-        <span className="text-xl font-bold text-charcoal">AceAI</span>
-      </div>
+  const toggleExpanded = (itemId: string) => {
+    setExpandedItems(prev =>
+      prev.includes(itemId)
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-          const Icon = item.icon;
+  const isActive = (href?: string) => {
+    if (!href) return false;
+    return pathname === href || pathname.startsWith(href + '/');
+  };
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setIsMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${
-                isActive
-                  ? 'bg-secondary-200 text-primary-500 border-l-4 border-primary-500 pl-2'
-                  : 'text-charcoal-light hover:bg-cream-200 hover:text-charcoal'
-              }`}
+  const renderNavItem = (item: NavItem) => {
+    const Icon = item.icon;
+    const hasChildren = item.children && item.children.length > 0;
+    const isExpanded = expandedItems.includes(item.id);
+    const isItemActive = item.href ? isActive(item.href) : item.children?.some(child => isActive(child.href));
+
+    return (
+      <div key={item.id}>
+        {item.href && !hasChildren ? (
+          <Link
+            href={item.href}
+            className={cn(
+              'flex items-center h-12 px-4 rounded-xl transition-colors',
+              isItemActive
+                ? 'bg-cream-200 text-charcoal font-medium'
+                : 'text-charcoal-light hover:text-charcoal'
+            )}
+          >
+            <Icon className="w-5 h-5 flex-shrink-0" />
+            {!isCollapsed && <span className="ml-3 whitespace-nowrap">{item.label}</span>}
+          </Link>
+        ) : (
+          <>
+            <button
+              onClick={() => !isCollapsed && toggleExpanded(item.id)}
+              className={cn(
+                'flex items-center h-12 px-4 rounded-xl transition-colors w-full',
+                isItemActive
+                  ? 'bg-cream-200 text-charcoal font-medium'
+                  : 'text-charcoal-light hover:text-charcoal'
+              )}
             >
-              <Icon className="w-5 h-5" />
-              <span className="font-medium">{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+              <Icon className="w-5 h-5 flex-shrink-0" />
+              {!isCollapsed && (
+                <>
+                  <span className="ml-3 flex-1 text-left whitespace-nowrap">{item.label}</span>
+                  {hasChildren && (
+                    isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                  )}
+                </>
+              )}
+            </button>
 
-      {/* User Profile */}
-      <div className="pt-4 border-t border-cream-300">
-        <div className="flex items-center gap-3 mb-3">
-          <Avatar className="w-10 h-10">
-            <AvatarImage src={user?.avatar_url || ''} />
-            <AvatarFallback className="bg-primary-100 text-primary-600">
-              {user?.name?.charAt(0).toUpperCase() || 'U'}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-charcoal truncate">
-              {user?.name || 'Student'}
-            </p>
-            <p className="text-xs text-charcoal-light truncate">
-              {user?.email || 'student@example.com'}
-            </p>
-          </div>
-        </div>
-        <Button
-          variant="ghost"
-          className="w-full justify-start text-charcoal-light hover:text-charcoal hover:bg-cream-200"
-          onClick={handleSignOut}
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          Sign out
-        </Button>
+            {hasChildren && isExpanded && !isCollapsed && (
+              <div className="ml-8 mt-1 space-y-1">
+                {item.children!.map((child) => (
+                  <Link
+                    key={child.href}
+                    href={child.href}
+                    className={cn(
+                      'flex items-center h-10 px-4 rounded-xl transition-colors text-sm',
+                      isActive(child.href)
+                        ? 'bg-cream-200 text-charcoal font-medium'
+                        : 'text-charcoal-light hover:text-charcoal'
+                    )}
+                  >
+                    <span>{child.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
-    </>
-  );
+    );
+  };
 
   return (
-    <>
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex fixed left-0 top-0 h-screen w-64 flex-col bg-cream-100 border-r border-cream-300 p-6 z-40">
-        <SidebarContent />
-      </aside>
-
-      {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-cream-300 flex items-center justify-between px-4 z-50">
-        <button
-          onClick={() => setIsMobileOpen(true)}
-          className="p-2 text-charcoal hover:bg-cream-100 rounded-lg"
-        >
-          <Menu className="w-6 h-6" />
-        </button>
-        <span className="text-lg font-bold text-charcoal">AceAI</span>
-        <Avatar className="w-8 h-8">
-          <AvatarImage src={user?.avatar_url || ''} />
-          <AvatarFallback className="bg-primary-100 text-primary-600 text-sm">
-            {user?.name?.charAt(0).toUpperCase() || 'U'}
-          </AvatarFallback>
-        </Avatar>
-      </header>
-
-      {/* Mobile Sidebar Overlay */}
-      {isMobileOpen && (
-        <div
-          className="md:hidden fixed inset-0 bg-black/50 z-50"
-          onClick={() => setIsMobileOpen(false)}
-        />
-      )}
-
-      {/* Mobile Sidebar */}
-      <aside
-        className={`md:hidden fixed left-0 top-0 h-screen w-64 flex-col bg-cream-100 p-6 z-50 transform transition-transform duration-300 ${
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        <button
-          onClick={() => setIsMobileOpen(false)}
-          className="absolute top-4 right-4 p-2 text-charcoal hover:bg-cream-200 rounded-lg"
-        >
-          <X className="w-5 h-5" />
-        </button>
-        <div className="flex flex-col h-full">
-          <SidebarContent />
+    <motion.aside
+      onMouseEnter={() => setIsCollapsed(false)}
+      onMouseLeave={() => { setIsCollapsed(true); setExpandedItems([]); }}
+      animate={{ width: isCollapsed ? 80 : 256 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="fixed left-0 top-0 h-screen flex flex-col bg-cream-50 border-r border-charcoal-light/30 z-40 overflow-hidden"
+    >
+      {/* Profile Section */}
+      <div className="p-4">
+        <div className="flex items-center h-14">
+          <Avatar className="w-12 h-12 flex-shrink-0">
+            <AvatarImage src={user?.avatar_url || ''} />
+            <AvatarFallback className="bg-pink-200 text-charcoal font-medium text-lg">
+              {user?.name?.charAt(0).toUpperCase() || 'S'}
+            </AvatarFallback>
+          </Avatar>
+          {!isCollapsed && (
+            <div className="ml-3 min-w-0">
+              <p className="text-xs text-charcoal-light uppercase tracking-wide">Student</p>
+              <p className="text-base font-semibold text-charcoal truncate">
+                {user?.name || 'Samy Rabah'}
+              </p>
+            </div>
+          )}
         </div>
-      </aside>
-    </>
+      </div>
+
+      {/* Separator */}
+      <div className="mx-4 h-[1px] bg-cream-200" />
+
+      {/* Main Navigation */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
+        <div className={cn(
+          'mb-3 h-4',
+          isCollapsed ? 'flex justify-center -mx-4' : ''
+        )}>
+          <p className={cn(
+            'text-xs font-medium text-charcoal-light uppercase',
+            isCollapsed ? 'tracking-normal' : 'px-4 tracking-wider'
+          )}>
+            Main
+          </p>
+        </div>
+        <nav className="space-y-1">
+          {mainNavItems.map((item) => renderNavItem(item))}
+        </nav>
+
+      </div>
+
+      {/* Bottom Section */}
+      <div className="mx-4 h-[1px] bg-cream-200" />
+      <div className="p-4 space-y-1">
+        <Link
+          href="/help"
+          className={cn(
+            'flex items-center h-12 px-4 rounded-xl transition-colors',
+            isActive('/help')
+              ? 'bg-cream-200 text-charcoal font-medium'
+              : 'text-charcoal-light hover:text-charcoal'
+          )}
+        >
+          <HelpCircle className="w-5 h-5 flex-shrink-0" />
+          {!isCollapsed && <span className="ml-3 whitespace-nowrap">Help</span>}
+        </Link>
+        <button
+          onClick={handleSignOut}
+          className="flex items-center h-12 px-4 rounded-xl text-red-500 hover:text-red-600 transition-colors w-full"
+        >
+          <LogOut className="w-5 h-5 flex-shrink-0" />
+          {!isCollapsed && <span className="ml-3 whitespace-nowrap">Logout Account</span>}
+        </button>
+      </div>
+    </motion.aside>
   );
 }
