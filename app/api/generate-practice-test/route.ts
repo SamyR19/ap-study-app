@@ -5,6 +5,172 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Maximum questions per batch to avoid token limits
+const MAX_QUESTIONS_PER_BATCH = 10;
+
+interface Question {
+  id: string;
+  type: 'mcq' | 'frq';
+  question: string;
+  choices?: { index: number; text: string }[];
+  correctAnswerIndex?: number;
+  rubric?: { criterion: string; points: number }[];
+  sampleAnswer?: string;
+  explanation: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  relatedTopic: string;
+}
+
+interface BatchResult {
+  questions: Question[];
+}
+
+// Clean and parse JSON from AI response
+function parseAIResponse(content: string): BatchResult {
+  // Try to extract JSON from the response
+  let jsonStr = content.trim();
+
+  // Remove markdown code blocks if present
+  if (jsonStr.startsWith('```json')) {
+    jsonStr = jsonStr.slice(7);
+  } else if (jsonStr.startsWith('```')) {
+    jsonStr = jsonStr.slice(3);
+  }
+  if (jsonStr.endsWith('```')) {
+    jsonStr = jsonStr.slice(0, -3);
+  }
+  jsonStr = jsonStr.trim();
+
+  // Try to find JSON object
+  const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    jsonStr = jsonMatch[0];
+  }
+
+  try {
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    // Try to fix common JSON issues
+    // Remove trailing commas
+    jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1');
+    // Fix unescaped quotes in strings
+    jsonStr = jsonStr.replace(/(?<!\\)\\(?!["\\/bfnrt])/g, '\\\\');
+
+    return JSON.parse(jsonStr);
+  }
+}
+
+async function generateBatch(
+  contentSummary: string,
+  isFromPrompt: boolean,
+  mcqCount: number,
+  frqCount: number,
+  batchNumber: number,
+  existingQuestions: string[],
+  difficultyDistribution: { easy: number; medium: number; hard: number }
+): Promise<Question[]> {
+  const totalInBatch = mcqCount + frqCount;
+
+  const avoidQuestionsPrompt = existingQuestions.length > 0
+    ? `\n\nIMPORTANT: Do NOT repeat any of these questions or very similar variations:\n${existingQuestions.slice(-15).map((q, i) => `${i + 1}. ${q}`).join('\n')}`
+    : '';
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: `You are an expert AP exam question writer specializing in AP Computer Science A. Generate practice test questions based on the provided study material.
+
+Create exactly ${totalInBatch} questions for this batch:
+${mcqCount > 0 ? `- ${mcqCount} Multiple Choice Questions (MCQ)` : ''}
+${frqCount > 0 ? `- ${frqCount} Free Response Questions (FRQ)` : ''}
+
+DIFFICULTY DISTRIBUTION (IMPORTANT - follow exactly):
+- Easy: ${difficultyDistribution.easy} questions
+- Medium: ${difficultyDistribution.medium} questions
+- Hard: ${difficultyDistribution.hard} questions
+
+Rules for MCQ:
+- Exactly 4 answer choices (A, B, C, D)
+- One correct answer
+- Make distractors plausible but clearly incorrect
+- Include code snippets where appropriate
+
+Rules for FRQ:
+- Require written or code responses
+- Include a rubric with 3-5 grading criteria
+- Provide a sample answer
+- Focus on problem-solving and application
+
+For all questions:
+- Be relevant to AP Computer Science A curriculum
+- Include clear, detailed explanations
+- EACH QUESTION MUST BE UNIQUE - no repeated concepts or similar questions
+- Use different scenarios, variable names, and contexts for each question
+- Number questions starting from q${(batchNumber - 1) * MAX_QUESTIONS_PER_BATCH + 1}
+${avoidQuestionsPrompt}
+
+Respond ONLY with valid JSON in this exact format (no markdown, no extra text):
+{
+  "questions": [
+    {
+      "id": "q${(batchNumber - 1) * MAX_QUESTIONS_PER_BATCH + 1}",
+      "type": "mcq",
+      "question": "Question text here?",
+      "choices": [
+        { "index": 0, "text": "Answer choice A" },
+        { "index": 1, "text": "Answer choice B" },
+        { "index": 2, "text": "Answer choice C" },
+        { "index": 3, "text": "Answer choice D" }
+      ],
+      "correctAnswerIndex": 0,
+      "explanation": "Detailed explanation of why this is correct",
+      "difficulty": "medium",
+      "relatedTopic": "Topic name"
+    },
+    {
+      "id": "q${(batchNumber - 1) * MAX_QUESTIONS_PER_BATCH + 2}",
+      "type": "frq",
+      "question": "FRQ question text with context and requirements...",
+      "rubric": [
+        { "criterion": "Criterion 1", "points": 2 },
+        { "criterion": "Criterion 2", "points": 2 },
+        { "criterion": "Criterion 3", "points": 1 }
+      ],
+      "sampleAnswer": "Example of a correct answer",
+      "explanation": "Explanation of the solution approach",
+      "difficulty": "hard",
+      "relatedTopic": "Topic name"
+    }
+  ]
+}`,
+      },
+      {
+        role: 'user',
+        content: isFromPrompt
+          ? `Create unique practice test questions (batch ${batchNumber}) about this topic: ${contentSummary}`
+          : `Create unique practice test questions (batch ${batchNumber}) based on this study material:\n${contentSummary}`,
+      },
+    ],
+    temperature: 0.8, // Slightly higher for more variety
+    max_tokens: 8000, // Increased for larger batches
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error('No response from AI');
+  }
+
+  const parsed = parseAIResponse(content);
+
+  // Renumber questions to ensure unique IDs
+  return parsed.questions.map((q, idx) => ({
+    ...q,
+    id: `q${(batchNumber - 1) * MAX_QUESTIONS_PER_BATCH + idx + 1}`,
+  }));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { sourceContent, settings } = await request.json();
@@ -63,110 +229,142 @@ export async function POST(request: NextRequest) {
     const includesMCQ = questionTypes.includes('mcq');
     const includesFRQ = questionTypes.includes('frq');
 
-    let mcqCount = 0;
-    let frqCount = 0;
+    // Calculate total MCQ and FRQ counts (50/50 split when both selected)
+    let totalMCQ = 0;
+    let totalFRQ = 0;
 
     if (includesMCQ && includesFRQ) {
-      mcqCount = Math.floor(questionCount * 0.7);
-      frqCount = questionCount - mcqCount;
+      // Equal 50/50 split
+      totalMCQ = Math.floor(questionCount / 2);
+      totalFRQ = questionCount - totalMCQ;
     } else if (includesMCQ) {
-      mcqCount = questionCount;
+      totalMCQ = questionCount;
     } else if (includesFRQ) {
-      frqCount = questionCount;
+      totalFRQ = questionCount;
     }
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert AP exam question writer specializing in AP Computer Science A. Generate practice test questions based on the provided study material.
+    // Calculate number of batches needed
+    const totalQuestions = questionCount;
+    const numBatches = Math.ceil(totalQuestions / MAX_QUESTIONS_PER_BATCH);
 
-Create exactly ${questionCount} questions total:
-${mcqCount > 0 ? `- ${mcqCount} Multiple Choice Questions (MCQ)` : ''}
-${frqCount > 0 ? `- ${frqCount} Free Response Questions (FRQ)` : ''}
+    // Generate questions in batches
+    const allQuestions: Question[] = [];
+    const existingQuestionTexts: string[] = [];
 
-Rules for MCQ:
-- Exactly 4 answer choices (A, B, C, D)
-- One correct answer
-- Make distractors plausible but clearly incorrect
-- Vary difficulty (mix of easy, medium, hard)
+    for (let batch = 1; batch <= numBatches; batch++) {
+      const questionsRemaining = totalQuestions - allQuestions.length;
+      const questionsInThisBatch = Math.min(MAX_QUESTIONS_PER_BATCH, questionsRemaining);
 
-Rules for FRQ:
-- Require written or code responses
-- Include a rubric with 3-5 grading criteria
-- Provide a sample answer
-- Focus on problem-solving and application
+      // Calculate MCQ/FRQ for this batch proportionally
+      const mcqRemaining = totalMCQ - allQuestions.filter(q => q.type === 'mcq').length;
+      const frqRemaining = totalFRQ - allQuestions.filter(q => q.type === 'frq').length;
 
-For all questions:
-- Be relevant to AP Computer Science A curriculum
-- Include clear, detailed explanations
-- Assign difficulty levels appropriately
+      let batchMCQ = 0;
+      let batchFRQ = 0;
 
-Respond ONLY with valid JSON in this exact format:
-{
-  "title": "Practice Test Title",
-  "questions": [
-    {
-      "id": "q1",
-      "type": "mcq",
-      "question": "Question text here?",
-      "choices": [
-        { "index": 0, "text": "Answer choice A" },
-        { "index": 1, "text": "Answer choice B" },
-        { "index": 2, "text": "Answer choice C" },
-        { "index": 3, "text": "Answer choice D" }
-      ],
-      "correctAnswerIndex": 0,
-      "explanation": "Detailed explanation of why this is correct",
-      "difficulty": "medium",
-      "relatedTopic": "Topic name"
-    },
-    {
-      "id": "q2",
-      "type": "frq",
-      "question": "FRQ question text with context and requirements...",
-      "rubric": [
-        { "criterion": "Criterion 1", "points": 2 },
-        { "criterion": "Criterion 2", "points": 2 },
-        { "criterion": "Criterion 3", "points": 1 }
-      ],
-      "sampleAnswer": "Example of a correct answer",
-      "explanation": "Explanation of the solution approach",
-      "difficulty": "hard",
-      "relatedTopic": "Topic name"
+      if (includesMCQ && includesFRQ) {
+        // Distribute evenly across batches
+        batchMCQ = Math.min(Math.ceil(questionsInThisBatch / 2), mcqRemaining);
+        batchFRQ = Math.min(questionsInThisBatch - batchMCQ, frqRemaining);
+        // If one type is exhausted, fill with the other
+        if (batchMCQ + batchFRQ < questionsInThisBatch) {
+          if (mcqRemaining > batchMCQ) {
+            batchMCQ = questionsInThisBatch - batchFRQ;
+          } else {
+            batchFRQ = questionsInThisBatch - batchMCQ;
+          }
+        }
+      } else if (includesMCQ) {
+        batchMCQ = questionsInThisBatch;
+      } else {
+        batchFRQ = questionsInThisBatch;
+      }
+
+      // Calculate difficulty distribution for this batch (equal thirds)
+      const easyCount = Math.floor(questionsInThisBatch / 3);
+      const mediumCount = Math.floor(questionsInThisBatch / 3);
+      const hardCount = questionsInThisBatch - easyCount - mediumCount;
+
+      try {
+        const batchQuestions = await generateBatch(
+          contentSummary,
+          isFromPrompt,
+          batchMCQ,
+          batchFRQ,
+          batch,
+          existingQuestionTexts,
+          { easy: easyCount, medium: mediumCount, hard: hardCount }
+        );
+
+        // Add new question texts to avoid duplicates
+        for (const q of batchQuestions) {
+          existingQuestionTexts.push(q.question.substring(0, 100));
+        }
+
+        allQuestions.push(...batchQuestions);
+      } catch (batchError) {
+        console.error(`Error generating batch ${batch}:`, batchError);
+        // Continue with other batches even if one fails
+        if (allQuestions.length === 0) {
+          throw batchError; // Fail if we have no questions at all
+        }
+      }
     }
-  ]
-}`,
-        },
-        {
-          role: 'user',
-          content: isFromPrompt
-            ? `Create a practice test about this topic: ${contentSummary}`
-            : `Create a practice test based on this study material:\n${contentSummary}`,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 4000,
+
+    // Generate title based on content
+    let title = 'Practice Test';
+    if (isFromPrompt) {
+      const words = contentSummary.split(' ').slice(0, 5).join(' ');
+      title = `Practice Test: ${words}${contentSummary.split(' ').length > 5 ? '...' : ''}`;
+    }
+
+    // Final deduplication check
+    const seenQuestions = new Set<string>();
+    const uniqueQuestions = allQuestions.filter(q => {
+      const key = q.question.toLowerCase().substring(0, 80);
+      if (seenQuestions.has(key)) {
+        return false;
+      }
+      seenQuestions.add(key);
+      return true;
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No response from AI');
-    }
+    // Renumber questions after deduplication
+    const finalQuestions = uniqueQuestions.map((q, idx) => ({
+      ...q,
+      id: `q${idx + 1}`,
+    }));
 
-    // Parse the JSON response
-    const parsed = JSON.parse(content);
+    const result = {
+      title,
+      questions: finalQuestions,
+      metadata: {
+        totalQuestions: finalQuestions.length,
+        mcqCount: finalQuestions.filter(q => q.type === 'mcq').length,
+        frqCount: finalQuestions.filter(q => q.type === 'frq').length,
+        difficultyBreakdown: {
+          easy: finalQuestions.filter(q => q.difficulty === 'easy').length,
+          medium: finalQuestions.filter(q => q.difficulty === 'medium').length,
+          hard: finalQuestions.filter(q => q.difficulty === 'hard').length,
+        },
+      },
+    };
 
-    return new Response(JSON.stringify(parsed), {
+    return new Response(JSON.stringify(result), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Generate practice test error:', error);
-    return new Response(JSON.stringify({ error: 'Failed to generate practice test' }), {
+    return new Response(JSON.stringify({
+      error: 'Failed to generate practice test',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 }
+
+// Configure longer timeout for this route
+export const maxDuration = 300; // 5 minutes for large question counts
