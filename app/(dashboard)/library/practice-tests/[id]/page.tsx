@@ -173,20 +173,63 @@ export default function PracticeTestDetailPage() {
     });
   };
 
-  // Render scratchpad content with @variable highlighting
-  const renderScratchpadContent = (text: string) => {
+  // Extract variable names from code in the question
+  const extractVariablesFromQuestion = (question: PracticeTestQuestion): Set<string> => {
+    const variables = new Set<string>();
+    const questionText = question.question || '';
+
+    // Extract code blocks from question
+    const codeBlockRegex = /```\w*\n([\s\S]*?)```/g;
+    let match;
+    let allCode = '';
+
+    while ((match = codeBlockRegex.exec(questionText)) !== null) {
+      allCode += match[1] + '\n';
+    }
+
+    // Java variable declaration patterns
+    const patterns = [
+      // int x, double y, String name, boolean flag, char c, etc.
+      /\b(?:int|double|float|long|short|byte|char|boolean|String|Integer|Double|Boolean)\s+(\w+)/g,
+      // int[] arr, String[] args
+      /\b(?:int|double|float|long|short|byte|char|boolean|String|Integer|Double|Boolean)\s*\[\s*\]\s*(\w+)/g,
+      // ArrayList<Type> list, HashMap<K,V> map
+      /\b(?:ArrayList|List|HashMap|Map|Set|HashSet)\s*<[^>]*>\s+(\w+)/g,
+      // for (int i = 0; ...)
+      /\bfor\s*\(\s*(?:int|double|float|long|short|byte|char)\s+(\w+)/g,
+      // Common loop variables that might not be declared in visible code
+    ];
+
+    for (const pattern of patterns) {
+      let varMatch;
+      while ((varMatch = pattern.exec(allCode)) !== null) {
+        if (varMatch[1] && varMatch[1].length > 0) {
+          variables.add(varMatch[1]);
+        }
+      }
+    }
+
+    return variables;
+  };
+
+  // Render scratchpad content with variable highlighting
+  const renderScratchpadContent = (text: string, variables: Set<string>) => {
     if (!text) return null;
-    // Match @variableName patterns (letters, numbers, underscores)
-    const parts = text.split(/(@\w+)/g);
+    if (variables.size === 0) return <span>{text}</span>;
+
+    // Create regex pattern for all variables
+    const varPattern = Array.from(variables).map(v => `\\b${v}\\b`).join('|');
+    const regex = new RegExp(`(${varPattern})`, 'g');
+
+    const parts = text.split(regex);
     return parts.map((part, index) => {
-      if (part.startsWith('@')) {
-        const varName = part.slice(1);
+      if (variables.has(part)) {
         return (
           <span
             key={index}
-            className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-mono text-sm font-medium"
+            className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-mono text-sm font-medium"
           >
-            {varName}
+            {part}
           </span>
         );
       }
@@ -997,39 +1040,58 @@ export default function PracticeTestDetailPage() {
             exit={{ opacity: 0, x: 20 }}
             className="fixed right-6 top-1/2 -translate-y-1/2 w-72 z-40"
           >
-            <div className="bg-card border border-border rounded-2xl shadow-xl overflow-hidden">
-              <div className="bg-amber-50 dark:bg-amber-950/30 px-4 py-3 border-b border-border flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <StickyNote className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">Scratchpad</span>
-                </div>
-                <button
-                  onClick={() => setShowScratchpad(false)}
-                  className="p-1 rounded hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
-                >
-                  <X className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                </button>
-              </div>
-              <div className="p-3 max-h-80 overflow-y-auto bg-amber-50/50 dark:bg-amber-950/20">
-                {getCurrentScratchpad() ? (
-                  <div className="text-sm font-mono whitespace-pre-wrap leading-relaxed">
-                    {renderScratchpadContent(getCurrentScratchpad())}
+            {(() => {
+              const questionVariables = extractVariablesFromQuestion(currentQuestion);
+              return (
+                <div className="bg-card border border-border rounded-2xl shadow-xl overflow-hidden">
+                  <div className="bg-amber-50 dark:bg-amber-950/30 px-4 py-3 border-b border-border flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <StickyNote className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">Scratchpad</span>
+                    </div>
+                    <button
+                      onClick={() => setShowScratchpad(false)}
+                      className="p-1 rounded hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+                    >
+                      <X className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    </button>
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">
-                    Type @var to track variables...
-                  </p>
-                )}
-              </div>
-              <div className="border-t border-border">
-                <textarea
-                  value={getCurrentScratchpad()}
-                  onChange={(e) => updateScratchpad(e.target.value)}
-                  placeholder="@i = 0, 1, 2&#10;@count = 0, 1&#10;@sum = 5, 10"
-                  className="w-full px-3 py-2 bg-background text-foreground font-mono text-sm focus:outline-none resize-none placeholder:text-muted-foreground h-24"
-                />
-              </div>
-            </div>
+                  {/* Variables detected */}
+                  {questionVariables.size > 0 && (
+                    <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/30 border-b border-border">
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Variables detected:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {Array.from(questionVariables).map(v => (
+                          <span key={v} className="px-1.5 py-0.5 text-xs font-mono bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded">
+                            {v}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Scratchpad content with highlighting */}
+                  <div className="relative">
+                    {/* Rendered overlay with highlights */}
+                    <div
+                      className="absolute inset-0 px-3 py-2 pointer-events-none text-sm font-mono whitespace-pre-wrap leading-relaxed overflow-hidden"
+                      aria-hidden="true"
+                    >
+                      {renderScratchpadContent(getCurrentScratchpad(), questionVariables)}
+                    </div>
+                    {/* Actual textarea (transparent text) */}
+                    <textarea
+                      value={getCurrentScratchpad()}
+                      onChange={(e) => updateScratchpad(e.target.value)}
+                      placeholder={questionVariables.size > 0
+                        ? `Track values...\n${Array.from(questionVariables).slice(0, 3).map(v => `${v} = `).join('\n')}`
+                        : 'Notes...'}
+                      className="w-full px-3 py-2 bg-transparent text-transparent caret-foreground font-mono text-sm focus:outline-none resize-none placeholder:text-muted-foreground h-48"
+                      style={{ caretColor: 'inherit' }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
           </motion.div>
         )}
       </AnimatePresence>
