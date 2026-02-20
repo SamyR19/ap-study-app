@@ -89,7 +89,7 @@ export default function TopicDetailPage() {
   if (!topic) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-charcoal-light">Loading topic...</p>
+        <p className="text-muted-foreground">Loading topic...</p>
       </div>
     );
   }
@@ -128,7 +128,7 @@ export default function TopicDetailPage() {
       {/* Back button */}
       <button
         onClick={() => router.push('/course')}
-        className="flex items-center gap-2 text-charcoal-light hover:text-charcoal mb-6 transition-colors"
+        className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Course
@@ -138,7 +138,7 @@ export default function TopicDetailPage() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-xl border border-cream-200 p-6 mb-6"
+        className="bg-card rounded-xl border border-border p-6 mb-6"
       >
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4">
@@ -162,9 +162,9 @@ export default function TopicDetailPage() {
                   {topic.estimatedDifficulty}
                 </span>
               </div>
-              <h1 className="text-2xl font-bold text-charcoal mb-2">{topic.name}</h1>
-              <p className="text-charcoal-light">{topic.description}</p>
-              <p className="text-sm text-charcoal-light mt-2">
+              <h1 className="text-2xl font-bold text-foreground mb-2">{topic.name}</h1>
+              <p className="text-muted-foreground">{topic.description}</p>
+              <p className="text-sm text-muted-foreground mt-2">
                 {topic.conceptCount} concepts to master
               </p>
             </div>
@@ -181,16 +181,16 @@ export default function TopicDetailPage() {
             >
               {masteryInfo.label}
             </span>
-            <p className="text-2xl font-bold text-charcoal mt-2">
+            <p className="text-2xl font-bold text-foreground mt-2">
               {progress.mastery_percentage}%
             </p>
-            <p className="text-xs text-charcoal-light">mastery</p>
+            <p className="text-xs text-muted-foreground">mastery</p>
           </div>
         </div>
 
         {/* Progress bar */}
         <div className="mt-4">
-          <div className="h-2 bg-cream-200 rounded-full overflow-hidden">
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
             <motion.div
               className="h-full rounded-full"
               style={{ backgroundColor: masteryInfo.color }}
@@ -203,7 +203,7 @@ export default function TopicDetailPage() {
       </motion.div>
 
       {/* Tab navigation */}
-      <div className="flex gap-2 mb-6 border-b border-cream-200">
+      <div className="flex gap-2 mb-6 border-b border-border">
         {[
           { id: 'materials', label: 'Study Materials', icon: BookOpen },
           { id: 'practice', label: 'Code Practice', icon: Code2 },
@@ -217,8 +217,8 @@ export default function TopicDetailPage() {
               className={cn(
                 'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-[1px]',
                 activeTab === tab.id
-                  ? 'border-charcoal text-charcoal'
-                  : 'border-transparent text-charcoal-light hover:text-charcoal'
+                  ? 'border-foreground text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               )}
             >
               <Icon className="w-4 h-4" />
@@ -241,56 +241,56 @@ export default function TopicDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Link
                 href={`/create/flashcards?topic=${topicId}`}
-                className="flex items-center gap-3 p-4 rounded-xl border border-cream-200 bg-white hover:border-primary-300 hover:shadow-sm transition-all group"
+                className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:border-primary-300 hover:shadow-sm transition-all group"
               >
                 <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
                   <Sparkles className="w-5 h-5 text-primary-500" />
                 </div>
                 <div>
-                  <p className="font-medium text-charcoal group-hover:text-primary-500 transition-colors">
+                  <p className="font-medium text-foreground group-hover:text-primary-500 transition-colors">
                     Create Flashcards
                   </p>
-                  <p className="text-xs text-charcoal-light">AI-powered generation</p>
+                  <p className="text-xs text-muted-foreground">AI-powered generation</p>
                 </div>
-                <Plus className="w-4 h-4 text-charcoal-light ml-auto" />
+                <Plus className="w-4 h-4 text-muted-foreground ml-auto" />
               </Link>
 
               <Link
                 href={`/create/study-guide?topic=${topicId}`}
-                className="flex items-center gap-3 p-4 rounded-xl border border-cream-200 bg-white hover:border-primary-300 hover:shadow-sm transition-all group"
+                className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:border-primary-300 hover:shadow-sm transition-all group"
               >
                 <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
                   <BookOpen className="w-5 h-5 text-purple-500" />
                 </div>
                 <div>
-                  <p className="font-medium text-charcoal group-hover:text-primary-500 transition-colors">
+                  <p className="font-medium text-foreground group-hover:text-primary-500 transition-colors">
                     Create Study Guide
                   </p>
-                  <p className="text-xs text-charcoal-light">Comprehensive notes</p>
+                  <p className="text-xs text-muted-foreground">Comprehensive notes</p>
                 </div>
-                <Plus className="w-4 h-4 text-charcoal-light ml-auto" />
+                <Plus className="w-4 h-4 text-muted-foreground ml-auto" />
               </Link>
 
               <Link
                 href={`/create/practice-test?topic=${topicId}`}
-                className="flex items-center gap-3 p-4 rounded-xl border border-cream-200 bg-white hover:border-primary-300 hover:shadow-sm transition-all group"
+                className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:border-primary-300 hover:shadow-sm transition-all group"
               >
                 <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
                   <ClipboardList className="w-5 h-5 text-orange-500" />
                 </div>
                 <div>
-                  <p className="font-medium text-charcoal group-hover:text-primary-500 transition-colors">
+                  <p className="font-medium text-foreground group-hover:text-primary-500 transition-colors">
                     Create Practice Test
                   </p>
-                  <p className="text-xs text-charcoal-light">MCQ & FRQ questions</p>
+                  <p className="text-xs text-muted-foreground">MCQ & FRQ questions</p>
                 </div>
-                <Plus className="w-4 h-4 text-charcoal-light ml-auto" />
+                <Plus className="w-4 h-4 text-muted-foreground ml-auto" />
               </Link>
             </div>
 
             {/* Existing materials */}
             <div>
-              <h3 className="font-semibold text-charcoal mb-3">Your Materials</h3>
+              <h3 className="font-semibold text-foreground mb-3">Your Materials</h3>
               {materials.length > 0 ? (
                 <div className="space-y-3">
                   {materials.map((material) => (
@@ -303,7 +303,7 @@ export default function TopicDetailPage() {
                           ? 'study-guides'
                           : 'practice-tests'
                       }/${material.id}`}
-                      className="flex items-center justify-between p-4 rounded-xl border border-cream-200 bg-white hover:border-charcoal-light/40 hover:shadow-sm transition-all"
+                      className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:border-foreground-light/40 hover:shadow-sm transition-all"
                     >
                       <div className="flex items-center gap-3">
                         <div
@@ -325,8 +325,8 @@ export default function TopicDetailPage() {
                           )}
                         </div>
                         <div>
-                          <p className="font-medium text-charcoal">{material.title}</p>
-                          <p className="text-xs text-charcoal-light">
+                          <p className="font-medium text-foreground">{material.title}</p>
+                          <p className="text-xs text-muted-foreground">
                             {material.itemCount}{' '}
                             {material.type === 'flashcard_set'
                               ? 'cards'
@@ -336,15 +336,15 @@ export default function TopicDetailPage() {
                           </p>
                         </div>
                       </div>
-                      <ExternalLink className="w-4 h-4 text-charcoal-light" />
+                      <ExternalLink className="w-4 h-4 text-muted-foreground" />
                     </Link>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 bg-cream-50 rounded-xl border border-cream-200">
-                  <FileText className="w-10 h-10 text-charcoal-light mx-auto mb-3" />
-                  <p className="text-charcoal-light">No materials yet for this topic.</p>
-                  <p className="text-sm text-charcoal-light">
+                <div className="text-center py-8 bg-muted/50 rounded-xl border border-border">
+                  <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">No materials yet for this topic.</p>
+                  <p className="text-sm text-muted-foreground">
                     Create flashcards, guides, or tests above.
                   </p>
                 </div>
@@ -355,23 +355,23 @@ export default function TopicDetailPage() {
 
         {activeTab === 'practice' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-cream-200 p-6">
+            <div className="bg-card rounded-xl border border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="font-semibold text-charcoal">Code Challenges</h3>
-                  <p className="text-sm text-charcoal-light">
+                  <h3 className="font-semibold text-foreground">Code Challenges</h3>
+                  <p className="text-sm text-muted-foreground">
                     Practice coding with spaced repetition
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <p className="text-sm text-charcoal-light">Completed</p>
-                    <p className="text-xl font-bold text-charcoal">
+                    <p className="text-sm text-muted-foreground">Completed</p>
+                    <p className="text-xl font-bold text-foreground">
                       {progress.code_challenges_completed}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-charcoal-light">Due for review</p>
+                    <p className="text-sm text-muted-foreground">Due for review</p>
                     <p className="text-xl font-bold text-primary-500">
                       {progress.code_challenges_due}
                     </p>
@@ -381,7 +381,7 @@ export default function TopicDetailPage() {
 
               <Link
                 href={`/course/code-practice?topic=${topicId}`}
-                className="flex items-center justify-center gap-2 w-full py-3 bg-charcoal text-white rounded-xl font-medium hover:bg-charcoal/90 transition-colors"
+                className="flex items-center justify-center gap-2 w-full py-3 bg-foreground text-white rounded-xl font-medium hover:bg-foreground/90 transition-colors"
               >
                 <Code2 className="w-4 h-4" />
                 Start Code Practice
@@ -399,11 +399,11 @@ export default function TopicDetailPage() {
         )}
 
         {activeTab === 'tutor' && (
-          <div className="bg-white rounded-xl border border-cream-200 overflow-hidden">
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
             {/* Chat header */}
-            <div className="p-4 border-b border-cream-100">
-              <h3 className="font-semibold text-charcoal">AI Tutor</h3>
-              <p className="text-sm text-charcoal-light">
+            <div className="p-4 border-b border-border">
+              <h3 className="font-semibold text-foreground">AI Tutor</h3>
+              <p className="text-sm text-muted-foreground">
                 Ask questions about {topic.name}
               </p>
             </div>
@@ -412,8 +412,8 @@ export default function TopicDetailPage() {
             <div className="h-80 overflow-y-auto p-4 space-y-4">
               {chatHistory.length === 0 ? (
                 <div className="text-center py-8">
-                  <MessageSquare className="w-10 h-10 text-charcoal-light mx-auto mb-3" />
-                  <p className="text-charcoal-light">
+                  <MessageSquare className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">
                     Ask me anything about {topic.name}!
                   </p>
                   <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -425,7 +425,7 @@ export default function TopicDetailPage() {
                       <button
                         key={suggestion}
                         onClick={() => setChatMessage(suggestion)}
-                        className="px-3 py-1.5 text-sm bg-cream-100 text-charcoal rounded-full hover:bg-cream-200 transition-colors"
+                        className="px-3 py-1.5 text-sm bg-muted text-foreground rounded-full hover:bg-muted transition-colors"
                       >
                         {suggestion}
                       </button>
@@ -445,8 +445,8 @@ export default function TopicDetailPage() {
                       className={cn(
                         'max-w-[80%] px-4 py-3 rounded-2xl',
                         message.role === 'user'
-                          ? 'bg-charcoal text-white rounded-br-none'
-                          : 'bg-cream-100 text-charcoal rounded-bl-none'
+                          ? 'bg-foreground text-white rounded-br-none'
+                          : 'bg-muted text-foreground rounded-bl-none'
                       )}
                     >
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -456,11 +456,11 @@ export default function TopicDetailPage() {
               )}
               {isLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-cream-100 px-4 py-3 rounded-2xl rounded-bl-none">
+                  <div className="bg-muted px-4 py-3 rounded-2xl rounded-bl-none">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-charcoal-light rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-charcoal-light rounded-full animate-bounce [animation-delay:0.1s]" />
-                      <div className="w-2 h-2 bg-charcoal-light rounded-full animate-bounce [animation-delay:0.2s]" />
+                      <div className="w-2 h-2 bg-foreground-light rounded-full animate-bounce" />
+                      <div className="w-2 h-2 bg-foreground-light rounded-full animate-bounce [animation-delay:0.1s]" />
+                      <div className="w-2 h-2 bg-foreground-light rounded-full animate-bounce [animation-delay:0.2s]" />
                     </div>
                   </div>
                 </div>
@@ -468,7 +468,7 @@ export default function TopicDetailPage() {
             </div>
 
             {/* Chat input */}
-            <div className="p-4 border-t border-cream-100">
+            <div className="p-4 border-t border-border">
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -476,7 +476,7 @@ export default function TopicDetailPage() {
                   onChange={(e) => setChatMessage(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                   placeholder={`Ask about ${topic.name}...`}
-                  className="flex-1 px-4 py-2 border border-cream-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="flex-1 px-4 py-2 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 <button
                   onClick={handleSendMessage}
@@ -484,8 +484,8 @@ export default function TopicDetailPage() {
                   className={cn(
                     'px-4 py-2 rounded-xl transition-colors',
                     chatMessage.trim() && !isLoading
-                      ? 'bg-charcoal text-white hover:bg-charcoal/90'
-                      : 'bg-cream-200 text-charcoal-light cursor-not-allowed'
+                      ? 'bg-foreground text-white hover:bg-foreground/90'
+                      : 'bg-muted text-muted-foreground cursor-not-allowed'
                   )}
                 >
                   <Send className="w-4 h-4" />

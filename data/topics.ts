@@ -712,7 +712,19 @@ export function getTopicsByUnit(unitNumber: number): Topic[] {
 }
 
 export function getTopicById(id: string): Topic | undefined {
-  return AP_CSA_TOPICS.find((t) => t.id === id);
+  // Search 4-unit topics first, then 9-unit if not found
+  const topic = AP_CSA_TOPICS.find((t) => t.id === id);
+  if (topic) return topic;
+
+  // Try importing 9-unit topics dynamically
+  // For now, check if it's a 9-unit topic ID (starts with csa9-)
+  if (id.startsWith('csa9-')) {
+    // Import from topics-9unit
+    const { AP_CSA_9UNIT_TOPICS } = require('./topics-9unit');
+    return AP_CSA_9UNIT_TOPICS.find((t: Topic) => t.id === id);
+  }
+
+  return undefined;
 }
 
 export function getTopicsByDifficulty(difficulty: Difficulty): Topic[] {
