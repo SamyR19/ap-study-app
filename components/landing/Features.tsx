@@ -1,42 +1,37 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Brain, Code, BarChart3, Zap } from 'lucide-react';
 
 const features = [
   {
-    icon: Brain,
+    icon: '+',
+    iconColor: '#ff4b54',
+    title: 'Study Timeline',
+    description: 'Visualize AP unit pacing, quiz dates, and exam deadlines at a glance.',
+  },
+  {
+    icon: '*',
+    iconColor: '#7d4dff',
+    title: 'Subject Workspaces',
+    description: 'Keep AP Bio, APUSH, Calc BC, and Lang prep neatly separated in one dashboard.',
+  },
+  {
+    icon: '@',
+    iconColor: '#31ad43',
     title: 'AI-Powered Feedback',
-    description:
-      'Get instant, detailed explanations for every question. Our AI tutor helps you understand concepts, not just memorize answers.',
-    color: 'text-error',
+    description: 'Get instant, detailed explanations for every question with AI tutoring.',
   },
   {
-    icon: Code,
-    title: 'Code Execution',
-    description:
-      'Write and run Java code directly in the browser for AP CSA. Test your solutions against real test cases.',
-    color: 'text-purple-600',
-  },
-  {
-    icon: BarChart3,
-    title: 'Progress Tracking',
-    description:
-      'Track your mastery across topics and units. Identify weak areas and focus your study time effectively.',
-    color: 'text-success',
-  },
-  {
-    icon: Zap,
-    title: 'Adaptive Practice',
-    description:
-      'Questions adapt to your skill level. Start easy and work up to exam-level difficulty at your own pace.',
-    color: 'text-primary-500',
+    icon: '!',
+    iconColor: '#f0832f',
+    title: 'Smart Alerts',
+    description: 'Get nudges when progress slips or when high-impact review windows open.',
   },
 ];
 
 export function Features() {
   return (
-    <section id="features" className="py-16 px-8 bg-cream-100">
+    <section id="features" className="py-16 px-8" style={{ background: '#efeff1' }}>
       <div className="max-w-[1300px] mx-auto">
         <div className="grid md:grid-cols-2 gap-10 items-start">
           {/* Left: Text Content */}
@@ -47,14 +42,34 @@ export function Features() {
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
             >
-              <span className="pill">Features</span>
-              <h2 className="mt-5 text-[clamp(42px,6vw,78px)] leading-[1.03] tracking-[-0.04em]">
-                Everything you need to ace your APs
+              <span
+                className="inline-flex items-center px-4 py-2.5 rounded-full text-xl font-medium"
+                style={{
+                  border: '1.5px solid #d4d4da',
+                  background: '#f3f3f6',
+                  color: '#111217'
+                }}
+              >
+                AI AP Study Hub
+              </span>
+              <h2
+                className="mt-5 font-bold"
+                style={{
+                  fontSize: 'clamp(42px, 6vw, 78px)',
+                  lineHeight: 1.03,
+                  letterSpacing: '-0.04em',
+                  color: '#111217'
+                }}
+              >
+                All Your AP Prep, Organized Effortlessly
               </h2>
             </motion.div>
 
             {/* Feature Grid */}
-            <div className="mt-10 grid grid-cols-2 border-t border-cream-300">
+            <div
+              className="mt-10 grid grid-cols-1 sm:grid-cols-2"
+              style={{ borderTop: '1px solid #d8d8de' }}
+            >
               {features.map((feature, index) => (
                 <motion.div
                   key={feature.title}
@@ -62,20 +77,42 @@ export function Features() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className={`py-7 pr-6 border-b border-cream-300 min-h-[220px] ${
-                    index % 2 === 0 ? 'border-r border-cream-300 pr-7' : 'pl-7'
-                  }`}
+                  className="py-7 min-h-[220px]"
+                  style={{
+                    borderBottom: '1px solid #d8d8de',
+                    borderRight: index % 2 === 0 ? '1px solid #d8d8de' : 'none',
+                    paddingRight: index % 2 === 0 ? '30px' : '0',
+                    paddingLeft: index % 2 === 1 ? '30px' : '0',
+                  }}
                 >
                   <div
-                    className={`w-[34px] h-[34px] rounded-[10px] border-2 flex items-center justify-center ${feature.color}`}
-                    style={{ borderColor: 'currentColor' }}
+                    className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center text-sm font-bold"
+                    style={{
+                      border: `2px solid ${feature.iconColor}`,
+                      color: feature.iconColor
+                    }}
                   >
-                    <feature.icon className="w-4 h-4" />
+                    {feature.icon}
                   </div>
-                  <h3 className="mt-4 text-[45px] leading-[1.08] tracking-[-0.03em] font-bold">
+                  <h3
+                    className="mt-4 font-bold"
+                    style={{
+                      fontSize: 'clamp(28px, 3.5vw, 45px)',
+                      lineHeight: 1.08,
+                      letterSpacing: '-0.03em',
+                      color: '#111217'
+                    }}
+                  >
                     {feature.title}
                   </h3>
-                  <p className="mt-2.5 text-xl leading-[1.42] text-charcoal-light max-w-[95%]">
+                  <p
+                    className="mt-2.5 max-w-[95%]"
+                    style={{
+                      fontSize: '20px',
+                      lineHeight: 1.42,
+                      color: '#4f505a'
+                    }}
+                  >
                     {feature.description}
                   </p>
                 </motion.div>
@@ -89,34 +126,72 @@ export function Features() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="bg-cream-200 border border-cream-300 rounded-[34px] p-5 min-h-[700px] relative"
+            className="rounded-[34px] p-5 min-h-[700px] relative"
+            style={{
+              background: '#f8f8fa',
+              border: '1px solid #d9d9df'
+            }}
           >
-            <div className="border border-cream-300 rounded-3xl bg-white min-h-[610px] overflow-hidden">
+            <div
+              className="rounded-3xl min-h-[610px] overflow-hidden"
+              style={{
+                border: '1px solid #dedee4',
+                background: '#ffffff'
+              }}
+            >
               {/* Panel Top */}
-              <div className="h-14 border-b border-cream-300 bg-cream-100 flex items-center gap-2.5 px-3.5">
-                <div className="flex-1 h-[34px] rounded-[10px] bg-cream-200 border border-cream-300" />
+              <div
+                className="h-14 flex items-center gap-2.5 px-3.5"
+                style={{
+                  borderBottom: '1px solid #e2e2e7',
+                  background: '#f7f7fa'
+                }}
+              >
+                <div
+                  className="flex-1 h-[34px] rounded-[10px]"
+                  style={{
+                    background: '#ececf1',
+                    border: '1px solid #dfdfe6'
+                  }}
+                />
+                <div
+                  className="w-[88px] h-[34px] rounded-[10px]"
+                  style={{ background: '#111217' }}
+                />
               </div>
 
               {/* Panel Content */}
               <div className="grid grid-cols-[1fr_290px] min-h-[554px]">
                 {/* Timeline */}
-                <div className="p-3.5 bg-cream-50">
-                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div className="p-3.5" style={{ background: '#fbfbfd' }}>
+                  {[1, 2, 3, 4, 5, 6, 7].map((i) => (
                     <div
                       key={i}
-                      className={`h-14 border border-cream-300 rounded-[10px] mb-2.5 ${
-                        i % 2 === 0 ? 'bg-cream-100' : 'bg-white'
-                      }`}
+                      className="h-14 rounded-[10px] mb-2.5"
+                      style={{
+                        border: '1px solid #e6e6ec',
+                        background: i % 2 === 0 ? '#f6f6fb' : '#ffffff'
+                      }}
                     />
                   ))}
                 </div>
 
                 {/* Detail Pane */}
-                <div className="bg-cream-100 border-l border-cream-300 p-3.5">
+                <div
+                  className="p-3.5 hidden lg:block"
+                  style={{
+                    background: '#f8f8fb',
+                    borderLeft: '1px solid #e5e5ea'
+                  }}
+                >
                   {[1, 2, 3, 4].map((i) => (
                     <div
                       key={i}
-                      className="h-[84px] rounded-xl border border-cream-300 bg-white mb-2.5"
+                      className="h-[84px] rounded-xl mb-2.5"
+                      style={{
+                        border: '1px solid #e5e5eb',
+                        background: '#ffffff'
+                      }}
                     />
                   ))}
                 </div>
@@ -124,13 +199,52 @@ export function Features() {
             </div>
 
             {/* Floating Cards */}
-            <div className="absolute w-[280px] h-[350px] left-9 bottom-6 rounded-[20px] border-[1.5px] border-primary-300 bg-white shadow-lg">
-              <div className="h-14 border-b border-cream-200 bg-cream-50 rounded-t-[18px]" />
+            <div
+              className="absolute w-[280px] h-[350px] left-9 bottom-6 rounded-[20px]"
+              style={{
+                border: '1.5px solid #f091a2',
+                background: '#ffffff',
+                boxShadow: '0 16px 30px rgba(45, 32, 70, 0.08)'
+              }}
+            >
+              <div
+                className="h-14 rounded-t-[18px]"
+                style={{
+                  borderBottom: '1px solid #ececf0',
+                  background: '#fafafd'
+                }}
+              />
               <div className="p-3">
-                <div className="h-3.5 rounded-full bg-cream-300 mb-2.5" />
-                <div className="h-3.5 rounded-full bg-cream-300 w-[72%] mb-2.5" />
-                <div className="h-3.5 rounded-full bg-cream-300 mb-2.5" />
-                <div className="h-3.5 rounded-full bg-cream-300 w-[85%]" />
+                <div className="h-3.5 rounded-full mb-2.5" style={{ background: '#e5e5eb' }} />
+                <div className="h-3.5 rounded-full w-[72%] mb-2.5" style={{ background: '#e5e5eb' }} />
+                <div className="h-3.5 rounded-full mb-2.5" style={{ background: '#e5e5eb' }} />
+                <div className="h-3.5 rounded-full w-[85%]" style={{ background: '#e5e5eb' }} />
+              </div>
+            </div>
+
+            <div
+              className="absolute w-[306px] h-[470px] right-[-4px] top-24 rounded-[20px] hidden xl:block"
+              style={{
+                border: '1.5px solid #d8d8df',
+                background: '#ffffff',
+                boxShadow: '0 16px 30px rgba(45, 32, 70, 0.08)'
+              }}
+            >
+              <div
+                className="h-14 rounded-t-[18px]"
+                style={{
+                  borderBottom: '1px solid #ececf0',
+                  background: '#fafafd'
+                }}
+              />
+              <div className="p-3">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <div
+                    key={i}
+                    className={`h-3.5 rounded-full mb-2.5 ${i % 2 === 0 ? 'w-[72%]' : ''}`}
+                    style={{ background: '#e5e5eb' }}
+                  />
+                ))}
               </div>
             </div>
           </motion.div>

@@ -106,7 +106,7 @@ export async function verifyOTP(email: string, token: string) {
   const { data, error } = await supabase.auth.verifyOtp({
     email,
     token,
-    type: 'signup',
+    type: 'email',
   });
 
   if (error) throw error;

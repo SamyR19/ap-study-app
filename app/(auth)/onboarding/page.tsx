@@ -47,13 +47,6 @@ const gradeOptions = [
 
 const apClasses = [
   { id: 'ap-csa', name: 'AP Computer Science A', available: true, icon: '💻' },
-  { id: 'ap-csp', name: 'AP Computer Science Principles', available: false, icon: '🖥️' },
-  { id: 'ap-calc-ab', name: 'AP Calculus AB', available: false, icon: '📐' },
-  { id: 'ap-calc-bc', name: 'AP Calculus BC', available: false, icon: '📊' },
-  { id: 'ap-physics-1', name: 'AP Physics 1', available: false, icon: '⚛️' },
-  { id: 'ap-bio', name: 'AP Biology', available: false, icon: '🧬' },
-  { id: 'ap-chem', name: 'AP Chemistry', available: false, icon: '🧪' },
-  { id: 'ap-stats', name: 'AP Statistics', available: false, icon: '📈' },
 ];
 
 // Get unique units from topics
@@ -201,10 +194,10 @@ export default function OnboardingPage() {
                 transition={{ duration: 0.2 }}
               >
                 <h1 className="text-3xl font-bold text-charcoal mb-2">
-                  Which AP classes are you taking?
+                  Let&apos;s get started!
                 </h1>
                 <p className="text-charcoal-light mb-8">
-                  Select all that apply. More subjects coming soon!
+                  Select AP Computer Science A to begin your personalized study journey.
                 </p>
 
                 <div className="space-y-3">

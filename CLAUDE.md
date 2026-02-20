@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Styling:** Tailwind CSS + shadcn/ui + Framer Motion
 - **Database:** Supabase (PostgreSQL with RLS)
 - **AI:** OpenAI API (GPT-4o-mini)
-- **Code Execution:** Judge0 CE (free, no API key)
+- **Code Execution:** Wandbox API (free, no API key) + browser JS
 - **Icons:** Lucide React
 - **Code Editor:** Monaco Editor
 
@@ -46,7 +46,7 @@ ap-study-app/
 │   │       ├── page.tsx     # All subjects list
 │   │       └── [subjectId]/page.tsx  # Subject detail + topics
 │   ├── api/
-│   │   ├── execute-code/route.ts  # Judge0 code execution
+│   │   ├── execute-code/route.ts  # Rextester code execution
 │   │   └── grade-frq/route.ts     # OpenAI FRQ grading
 │   ├── auth/callback/       # OAuth callback handler
 │   ├── globals.css          # Global styles + design system
@@ -180,8 +180,8 @@ Add more: `npx shadcn@latest add [component-name]`
 # .env.local
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-NEXT_PUBLIC_JUDGE0_API_URL=https://ce.judge0.com  # Free, no API key needed
 OPENAI_API_KEY=your_openai_api_key  # For FRQ grading
+# Note: Code execution uses Rextester API (no API key needed)
 ```
 
 ## API Routes

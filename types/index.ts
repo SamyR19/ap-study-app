@@ -285,32 +285,35 @@ export interface StudyStreak {
 }
 
 // ============================================
-// CODE EXECUTION (Judge0)
+// CODE EXECUTION (Rextester API)
 // ============================================
 
-export interface Judge0Submission {
-  language_id: number;
-  source_code: string;
+export interface CodeSubmission {
+  language: string;
+  code: string;
   stdin?: string;
-  expected_output?: string;
 }
 
-export interface Judge0Result {
-  token: string;
-  stdout: string | null;
-  stderr: string | null;
-  compile_output: string | null;
-  status: {
-    id: number;
-    description: string;
-  };
-  time: string;
-  memory: number;
+export interface CodeExecutionResult {
+  output: string;
+  error?: string;
+  exitCode: number;
+  executionTime?: number;
 }
 
-export interface Judge0Language {
-  id: number;
-  name: string;
+export interface CodeTestCase {
+  input: string;
+  expectedOutput: string;
+}
+
+export interface CodeValidationResult {
+  passed: boolean;
+  results: Array<{
+    input: string;
+    expected: string;
+    actual: string;
+    passed: boolean;
+  }>;
 }
 
 // ============================================

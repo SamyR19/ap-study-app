@@ -8,9 +8,8 @@ import { signOut } from '@/lib/supabase';
 import {
   Home,
   Users,
-  FileText,
+  GraduationCap,
   Folder,
-  Plus,
   MessageSquare,
   HelpCircle,
   LogOut,
@@ -30,27 +29,9 @@ interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { id: 'home', label: 'Home', href: '/dashboard', icon: Home },
+  { id: 'course', label: 'AP CSA Course', href: '/course', icon: GraduationCap },
   { id: 'study-groups', label: 'Study Groups', href: '/study-groups', icon: Users },
-  {
-    id: 'class',
-    label: 'Class',
-    icon: FileText,
-    children: [
-      { label: 'My Classes', href: '/classes' },
-      { label: 'Join Class', href: '/classes/join' },
-    ]
-  },
-  {
-    id: 'library',
-    label: 'Your library',
-    icon: Folder,
-    children: [
-      { label: 'Study sets', href: '/library/study-sets' },
-      { label: 'Practice tests', href: '/library/practice-tests' },
-      { label: 'Study guides', href: '/library/study-guides' },
-    ]
-  },
-  { id: 'create', label: 'Create', href: '/create', icon: Plus },
+  { id: 'library', label: 'Your library', href: '/library', icon: Folder },
   { id: 'ai-chat', label: 'AI Chat', href: '/ai-chat', icon: MessageSquare },
 ];
 
@@ -61,13 +42,19 @@ interface SidebarProps {
     email?: string;
     avatar_url?: string;
   } | null;
+  onCollapseChange?: (isCollapsed: boolean) => void;
 }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user, onCollapseChange }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+
+  const handleCollapseChange = (collapsed: boolean) => {
+    setIsCollapsed(collapsed);
+    onCollapseChange?.(collapsed);
+  };
 
   const handleSignOut = async () => {
     try {
@@ -105,8 +92,8 @@ export function Sidebar({ user }: SidebarProps) {
             className={cn(
               'flex items-center h-12 px-4 rounded-xl transition-colors',
               isItemActive
-                ? 'bg-cream-200 text-charcoal font-medium'
-                : 'text-charcoal-light hover:text-charcoal'
+                ? 'bg-accent text-foreground font-medium'
+                : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
             )}
           >
             <Icon className="w-5 h-5 flex-shrink-0" />
@@ -119,8 +106,8 @@ export function Sidebar({ user }: SidebarProps) {
               className={cn(
                 'flex items-center h-12 px-4 rounded-xl transition-colors w-full',
                 isItemActive
-                  ? 'bg-cream-200 text-charcoal font-medium'
-                  : 'text-charcoal-light hover:text-charcoal'
+                  ? 'bg-accent text-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
               )}
             >
               <Icon className="w-5 h-5 flex-shrink-0" />
@@ -143,8 +130,8 @@ export function Sidebar({ user }: SidebarProps) {
                     className={cn(
                       'flex items-center h-10 px-4 rounded-xl transition-colors text-sm',
                       isActive(child.href)
-                        ? 'bg-cream-200 text-charcoal font-medium'
-                        : 'text-charcoal-light hover:text-charcoal'
+                        ? 'bg-accent text-foreground font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                     )}
                   >
                     <span>{child.label}</span>
@@ -160,25 +147,25 @@ export function Sidebar({ user }: SidebarProps) {
 
   return (
     <motion.aside
-      onMouseEnter={() => setIsCollapsed(false)}
-      onMouseLeave={() => { setIsCollapsed(true); setExpandedItems([]); }}
+      onMouseEnter={() => handleCollapseChange(false)}
+      onMouseLeave={() => { handleCollapseChange(true); setExpandedItems([]); }}
       animate={{ width: isCollapsed ? 80 : 256 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="fixed left-0 top-0 h-screen flex flex-col bg-cream-50 border-r border-charcoal-light/30 z-40 overflow-hidden"
+      className="fixed left-0 top-0 h-screen flex flex-col bg-card border-r border-border z-40 overflow-hidden"
     >
       {/* Profile Section */}
       <div className="p-4">
         <div className="flex items-center h-14">
           <Avatar className="w-12 h-12 flex-shrink-0">
             <AvatarImage src={user?.avatar_url || ''} />
-            <AvatarFallback className="bg-pink-200 text-charcoal font-medium text-lg">
+            <AvatarFallback className="bg-primary/10 text-primary font-medium text-lg">
               {user?.name?.charAt(0).toUpperCase() || 'S'}
             </AvatarFallback>
           </Avatar>
           {!isCollapsed && (
             <div className="ml-3 min-w-0">
-              <p className="text-xs text-charcoal-light uppercase tracking-wide">Student</p>
-              <p className="text-base font-semibold text-charcoal truncate">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Student</p>
+              <p className="text-base font-semibold text-foreground truncate">
                 {user?.name || 'Samy Rabah'}
               </p>
             </div>
@@ -187,7 +174,7 @@ export function Sidebar({ user }: SidebarProps) {
       </div>
 
       {/* Separator */}
-      <div className="mx-4 h-[1px] bg-cream-200" />
+      <div className="mx-4 h-[1px] bg-border" />
 
       {/* Main Navigation */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
@@ -196,7 +183,7 @@ export function Sidebar({ user }: SidebarProps) {
           isCollapsed ? 'flex justify-center -mx-4' : ''
         )}>
           <p className={cn(
-            'text-xs font-medium text-charcoal-light uppercase',
+            'text-xs font-medium text-muted-foreground uppercase',
             isCollapsed ? 'tracking-normal' : 'px-4 tracking-wider'
           )}>
             Main
@@ -209,15 +196,15 @@ export function Sidebar({ user }: SidebarProps) {
       </div>
 
       {/* Bottom Section */}
-      <div className="mx-4 h-[1px] bg-cream-200" />
+      <div className="mx-4 h-[1px] bg-border" />
       <div className="p-4 space-y-1">
         <Link
           href="/help"
           className={cn(
             'flex items-center h-12 px-4 rounded-xl transition-colors',
             isActive('/help')
-              ? 'bg-cream-200 text-charcoal font-medium'
-              : 'text-charcoal-light hover:text-charcoal'
+              ? 'bg-accent text-foreground font-medium'
+              : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
           )}
         >
           <HelpCircle className="w-5 h-5 flex-shrink-0" />
@@ -225,7 +212,7 @@ export function Sidebar({ user }: SidebarProps) {
         </Link>
         <button
           onClick={handleSignOut}
-          className="flex items-center h-12 px-4 rounded-xl text-red-500 hover:text-red-600 transition-colors w-full"
+          className="flex items-center h-12 px-4 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors w-full"
         >
           <LogOut className="w-5 h-5 flex-shrink-0" />
           {!isCollapsed && <span className="ml-3 whitespace-nowrap">Logout Account</span>}

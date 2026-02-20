@@ -59,33 +59,43 @@
   }
 
   .dark {
-    --background: 0 0% 7%;
-    --foreground: 0 0% 95%;
+    /* Claude-like dark theme - #1a1a1a base, #2b2b2b cards, #e8e8e8 text */
+    --background: 0 0% 10%; /* #1a1a1a */
+    --foreground: 0 0% 91%; /* #e8e8e8 */
 
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 95%;
+    --card: 0 0% 17%; /* #2b2b2b */
+    --card-foreground: 0 0% 91%;
 
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 0 0% 17%;
+    --popover-foreground: 0 0% 91%;
 
-    --primary: 16 66% 61%;
+    --primary: 16 66% 61%; /* Keep coral accent */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 95%;
+    --secondary: 0 0% 20%; /* #343434 */
+    --secondary-foreground: 0 0% 91%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 64%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 95%;
+    --accent: 0 0% 22%;
+    --accent-foreground: 0 0% 91%;
 
     --destructive: 0 52% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
+    --border: 0 0% 25%; /* Slightly lighter for visibility */
+    --input: 0 0% 22%;
     --ring: 16 66% 61%;
+
+    /* Dark theme brand overrides */
+    --charcoal: #e8e8e8;
+    --charcoal-light: #b0b0b0;
+    --cream-light: #1a1a1a;
+    --cream-medium: #222222;
+    --cream-dark: #2b2b2b;
+    --code-bg: #1e1e1e;
+    --sidebar-bg: #2b2b2b;
 
     --chart-1: 16 66% 55%;
     --chart-2: 142 40% 45%;
@@ -109,9 +119,10 @@
 
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    color: var(--charcoal);
-    background-color: var(--cream-light);
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
     line-height: 1.6;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   /* Typography */
@@ -120,7 +131,7 @@
     font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1.1;
-    color: var(--charcoal);
+    color: hsl(var(--foreground));
   }
 
   h1 {
@@ -138,7 +149,7 @@
   }
 
   p {
-    color: var(--charcoal-light);
+    color: hsl(var(--muted-foreground));
     line-height: 1.6;
   }
 

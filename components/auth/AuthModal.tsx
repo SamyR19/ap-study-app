@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, ArrowRight, Check } from 'lucide-react';
 import { signInWithGoogle } from '@/lib/supabase';
@@ -39,6 +40,7 @@ const getSupabase = () => {
 };
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+  const router = useRouter();
   const [step, setStep] = useState<AuthStep>('initial');
   const [onboardingStep, setOnboardingStep] = useState<OnboardingQuestion>('classes');
   const [email, setEmail] = useState('');
@@ -162,7 +164,18 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         return;
       }
 
-      setStep('verify');
+      // After successful signup, the user session is created
+      // Check if we have a session (email confirmation might be disabled in Supabase settings)
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        // User is logged in, go directly to onboarding
+        setStep('onboarding');
+        setOnboardingStep('classes');
+      } else {
+        // Email confirmation is required - go to verify step
+        setStep('verify');
+      }
     } catch (err) {
       console.error('Signup error:', err);
       setError('Failed to create account. Please try again.');
@@ -171,12 +184,60 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     }
   };
 
-  const handleVerifyCode = () => {
-    // For now, skip verification and go to onboarding
-    // In production, you'd verify the code with Supabase
+  const handleVerifyCode = async () => {
+    if (!verifyCode || verifyCode.length < 6) {
+      setError('Please enter the 6-digit code');
+      return;
+    }
+
     setError('');
-    setStep('onboarding');
-    setOnboardingStep('classes');
+    setIsLoading(true);
+
+    try {
+      const supabase = getSupabase();
+
+      // Verify the OTP code with Supabase
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.toLowerCase(),
+        token: verifyCode,
+        type: 'email'  // Use 'email' type for email confirmation
+      });
+
+      if (verifyError) {
+        // Try 'signup' type as fallback
+        const { data: data2, error: verifyError2 } = await supabase.auth.verifyOtp({
+          email: email.toLowerCase(),
+          token: verifyCode,
+          type: 'signup'
+        });
+
+        if (verifyError2) {
+          setError(verifyError2.message || 'Invalid verification code');
+          setIsLoading(false);
+          return;
+        }
+
+        // If verification successful with signup type, user is now logged in
+        if (data2.session) {
+          setStep('onboarding');
+          setOnboardingStep('classes');
+          return;
+        }
+      }
+
+      // If verification successful, user is now logged in
+      if (data.session) {
+        setStep('onboarding');
+        setOnboardingStep('classes');
+      } else {
+        setError('Verification completed but session not established. Please try logging in.');
+      }
+    } catch (err) {
+      console.error('Verification error:', err);
+      setError('Failed to verify code. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClassToggle = (classId: string) => {
@@ -224,7 +285,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
       setOnboardingStep('complete');
       setTimeout(() => {
-        window.location.href = '/dashboard';
+        // Close the modal and redirect to dashboard
+        onClose();
+        router.push('/dashboard');
+        router.refresh();
       }, 1500);
     }
   };
@@ -272,14 +336,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
-                className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden"
+                className="relative w-full max-w-md mx-4 bg-card rounded-2xl shadow-2xl overflow-hidden"
               >
                 {/* Close Button */}
                 <button
                   onClick={handleClose}
-                  className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-cream-100 transition-colors z-10"
+                  className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors z-10"
                 >
-                  <X className="w-5 h-5 text-charcoal-light" />
+                  <X className="w-5 h-5 text-muted-foreground" />
                 </button>
 
                 <div className="p-8">
@@ -294,14 +358,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     />
                   </div>
 
-                  <h2 className="text-2xl font-bold text-charcoal">Start Learning.</h2>
-                  <p className="text-xl text-charcoal-light mb-6">Create free account</p>
+                  <h2 className="text-2xl font-bold text-foreground">Start Learning.</h2>
+                  <p className="text-xl text-muted-foreground mb-6">Create free account</p>
 
                   {/* Google Button */}
                   <button
                     onClick={handleGoogleSignIn}
                     disabled={isLoading}
-                    className="relative w-full flex items-center justify-center gap-3 px-4 py-3.5 border-2 border-cream-300 rounded-xl hover:bg-cream-50 hover:border-cream-400 transition-all mb-3"
+                    className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white dark:bg-[#1f1f1f] border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2a2a2a] hover:shadow-md transition-all mb-4"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
                       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -309,42 +373,30 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                       <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                     </svg>
-                    <span className="font-medium text-charcoal">Continue with Google</span>
-                    <span className="absolute right-3 px-2 py-0.5 bg-primary-100 text-primary-600 rounded text-xs font-medium">Last used</span>
-                  </button>
-
-                  {/* GitHub Button */}
-                  <button
-                    disabled={isLoading}
-                    className="w-full flex items-center justify-center gap-3 px-4 py-3.5 border-2 border-cream-300 rounded-xl hover:bg-cream-50 hover:border-cream-400 transition-all mb-4"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-                    </svg>
-                    <span className="font-medium text-charcoal">Continue with GitHub</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-200">Continue with Google</span>
                   </button>
 
                   {/* Divider */}
                   <div className="flex items-center gap-4 my-4">
-                    <div className="flex-1 h-px bg-cream-300" />
-                    <span className="text-sm text-charcoal-light">OR</span>
-                    <div className="flex-1 h-px bg-cream-300" />
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-sm text-muted-foreground">OR</span>
+                    <div className="flex-1 h-px bg-border" />
                   </div>
 
                   {/* Email Button */}
                   <button
                     onClick={() => setStep('email')}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-charcoal text-white rounded-xl hover:bg-charcoal/90 transition-colors font-medium"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-foreground text-background rounded-xl hover:bg-foreground/90 transition-colors font-medium"
                   >
                     Continue with email
                   </button>
 
                   {/* Terms */}
-                  <p className="mt-4 text-sm text-charcoal-light">
+                  <p className="mt-4 text-sm text-muted-foreground">
                     By continuing, you agree to the{' '}
-                    <a href="#" className="underline hover:text-charcoal">Terms of Service</a>
+                    <a href="#" className="underline hover:text-foreground">Terms of Service</a>
                     {' '}and{' '}
-                    <a href="#" className="underline hover:text-charcoal">Privacy Policy</a>.
+                    <a href="#" className="underline hover:text-foreground">Privacy Policy</a>.
                   </p>
                 </div>
               </motion.div>
@@ -356,7 +408,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
-                className="relative w-full h-full flex bg-white"
+                className="relative w-full h-full flex bg-background"
               >
                 {/* Left Side - Form */}
                 <div className="w-1/2 h-full flex items-center justify-center p-12 overflow-y-auto">
@@ -382,13 +434,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           exit={{ opacity: 0, x: 20 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <h2 className="text-2xl font-bold text-charcoal mb-8">Create your account</h2>
+                          <h2 className="text-2xl font-bold text-foreground mb-8">Create your account</h2>
 
                           {/* Google Button */}
                           <button
                             onClick={handleGoogleSignIn}
                             disabled={isLoading}
-                            className="relative w-full flex items-center justify-center gap-3 px-4 py-3.5 border-2 border-cream-300 rounded-xl hover:bg-cream-50 hover:border-cream-400 transition-all mb-3"
+                            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 bg-white dark:bg-[#1f1f1f] border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-[#2a2a2a] hover:shadow-md transition-all mb-4"
                           >
                             <svg className="w-5 h-5" viewBox="0 0 24 24">
                               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -396,31 +448,19 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                             </svg>
-                            <span className="font-medium text-charcoal">Continue with Google</span>
-                            <span className="absolute right-3 px-2 py-0.5 bg-primary-100 text-primary-600 rounded text-xs font-medium">Last used</span>
-                          </button>
-
-                          {/* GitHub Button */}
-                          <button
-                            disabled={isLoading}
-                            className="w-full flex items-center justify-center gap-3 px-4 py-3.5 border-2 border-cream-300 rounded-xl hover:bg-cream-50 hover:border-cream-400 transition-all mb-4"
-                          >
-                            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-                            </svg>
-                            <span className="font-medium text-charcoal">Continue with GitHub</span>
+                            <span className="font-medium text-gray-700 dark:text-gray-200">Continue with Google</span>
                           </button>
 
                           {/* Divider */}
                           <div className="flex items-center gap-4 my-4">
-                            <div className="flex-1 h-px bg-cream-300" />
-                            <span className="text-sm text-charcoal-light">OR</span>
-                            <div className="flex-1 h-px bg-cream-300" />
+                            <div className="flex-1 h-px bg-border" />
+                            <span className="text-sm text-muted-foreground">OR</span>
+                            <div className="flex-1 h-px bg-border" />
                           </div>
 
                           {/* Email Input */}
                           <div className="mb-4">
-                            <label className="block text-sm font-medium text-charcoal mb-2">Email</label>
+                            <label className="block text-sm font-medium text-foreground mb-2">Email</label>
                             <input
                               type="email"
                               value={email}
@@ -428,33 +468,33 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                               onKeyDown={(e) => e.key === 'Enter' && handleEmailContinue()}
                               placeholder="you@example.com"
                               autoFocus
-                              className="w-full px-4 py-3 border-2 border-cream-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                              className="w-full px-4 py-3 bg-background border-2 border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground placeholder:text-muted-foreground"
                             />
                           </div>
 
-                          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+                          {error && <p className="text-destructive text-sm mb-4">{error}</p>}
 
                           {/* Terms */}
-                          <p className="text-sm text-charcoal-light mb-4">
+                          <p className="text-sm text-muted-foreground mb-4">
                             By continuing, you agree to the{' '}
-                            <a href="#" className="underline hover:text-charcoal">Terms of Service</a>
+                            <a href="#" className="underline hover:text-foreground">Terms of Service</a>
                             {' '}and{' '}
-                            <a href="#" className="underline hover:text-charcoal">Privacy Policy</a>.
+                            <a href="#" className="underline hover:text-foreground">Privacy Policy</a>.
                           </p>
 
                           {/* Continue Button */}
                           <button
                             onClick={handleEmailContinue}
                             disabled={isLoading}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-charcoal text-white rounded-xl hover:bg-charcoal/90 transition-colors font-medium disabled:opacity-50"
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-foreground text-background rounded-xl hover:bg-foreground/90 transition-colors font-medium disabled:opacity-50"
                           >
                             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Continue'}
                           </button>
 
                           {/* Login Link */}
-                          <p className="mt-4 text-center text-sm text-charcoal-light">
+                          <p className="mt-4 text-center text-sm text-muted-foreground">
                             Already have an account?{' '}
-                            <a href="/login" className="underline font-medium text-charcoal hover:text-primary-500">Log in</a>
+                            <a href="/login" className="underline font-medium text-foreground hover:text-primary">Log in</a>
                           </p>
                         </motion.div>
                       )}
@@ -468,12 +508,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           exit={{ opacity: 0, x: 20 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <h2 className="text-2xl font-bold text-charcoal mb-2">Choose a username</h2>
-                          <p className="text-charcoal-light mb-6">for {email}</p>
+                          <h2 className="text-2xl font-bold text-foreground mb-2">Choose a username</h2>
+                          <p className="text-muted-foreground mb-6">for {email}</p>
 
                           {/* Username Input */}
                           <div className="mb-4">
-                            <label className="block text-sm font-medium text-charcoal mb-2">Username</label>
+                            <label className="block text-sm font-medium text-foreground mb-2">Username</label>
                             <input
                               type="text"
                               value={username}
@@ -481,18 +521,18 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                               onKeyDown={(e) => e.key === 'Enter' && handleUsernameContinue()}
                               placeholder="your_username"
                               autoFocus
-                              className="w-full px-4 py-3 border-2 border-cream-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                              className="w-full px-4 py-3 bg-background border-2 border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground placeholder:text-muted-foreground"
                             />
-                            <p className="text-xs text-charcoal-light mt-1">Letters, numbers, and underscores only</p>
+                            <p className="text-xs text-muted-foreground mt-1">Letters, numbers, and underscores only</p>
                           </div>
 
-                          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+                          {error && <p className="text-destructive text-sm mb-4">{error}</p>}
 
                           {/* Continue Button */}
                           <button
                             onClick={handleUsernameContinue}
                             disabled={isLoading}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-charcoal text-white rounded-xl hover:bg-charcoal/90 transition-colors font-medium disabled:opacity-50"
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-foreground text-background rounded-xl hover:bg-foreground/90 transition-colors font-medium disabled:opacity-50"
                           >
                             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Continue'}
                           </button>
@@ -500,7 +540,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           {/* Back Link */}
                           <button
                             onClick={() => setStep('email')}
-                            className="mt-4 w-full text-center text-sm text-charcoal-light hover:text-charcoal"
+                            className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-foreground"
                           >
                             Back
                           </button>
@@ -516,12 +556,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           exit={{ opacity: 0, x: 20 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <h2 className="text-2xl font-bold text-charcoal mb-2">Create a password</h2>
-                          <p className="text-charcoal-light mb-6">for @{username}</p>
+                          <h2 className="text-2xl font-bold text-foreground mb-2">Create a password</h2>
+                          <p className="text-muted-foreground mb-6">for @{username}</p>
 
                           {/* Password Input */}
                           <div className="mb-4">
-                            <label className="block text-sm font-medium text-charcoal mb-2">Password</label>
+                            <label className="block text-sm font-medium text-foreground mb-2">Password</label>
                             <input
                               type="password"
                               value={password}
@@ -529,17 +569,17 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                               onKeyDown={(e) => e.key === 'Enter' && handleCreateAccount()}
                               placeholder="Min. 6 characters"
                               autoFocus
-                              className="w-full px-4 py-3 border-2 border-cream-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                              className="w-full px-4 py-3 bg-background border-2 border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground placeholder:text-muted-foreground"
                             />
                           </div>
 
-                          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+                          {error && <p className="text-destructive text-sm mb-4">{error}</p>}
 
                           {/* Create Account Button */}
                           <button
                             onClick={handleCreateAccount}
                             disabled={isLoading}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-charcoal text-white rounded-xl hover:bg-charcoal/90 transition-colors font-medium disabled:opacity-50"
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-foreground text-background rounded-xl hover:bg-foreground/90 transition-colors font-medium disabled:opacity-50"
                           >
                             {isLoading ? (
                               <>
@@ -554,7 +594,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           {/* Back Link */}
                           <button
                             onClick={() => setStep('username')}
-                            className="mt-4 w-full text-center text-sm text-charcoal-light hover:text-charcoal"
+                            className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-foreground"
                           >
                             Back
                           </button>
@@ -570,14 +610,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           exit={{ opacity: 0, x: 20 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <h2 className="text-2xl font-bold text-charcoal mb-2">Verify your email</h2>
-                          <p className="text-charcoal-light mb-6">
+                          <h2 className="text-2xl font-bold text-foreground mb-2">Verify your email</h2>
+                          <p className="text-muted-foreground mb-6">
                             We sent a code to {email}
                           </p>
 
                           {/* Code Input */}
                           <div className="mb-4">
-                            <label className="block text-sm font-medium text-charcoal mb-2">Verification code</label>
+                            <label className="block text-sm font-medium text-foreground mb-2">Verification code</label>
                             <input
                               type="text"
                               value={verifyCode}
@@ -586,26 +626,46 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                               placeholder="Enter 6-digit code"
                               autoFocus
                               maxLength={6}
-                              className="w-full px-4 py-3 border-2 border-cream-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-2xl tracking-widest"
+                              className="w-full px-4 py-3 bg-background border-2 border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-center text-2xl tracking-widest text-foreground placeholder:text-muted-foreground"
                             />
                           </div>
 
-                          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+                          {error && <p className="text-destructive text-sm mb-4">{error}</p>}
 
                           {/* Verify Button */}
                           <button
                             onClick={handleVerifyCode}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-charcoal text-white rounded-xl hover:bg-charcoal/90 transition-colors font-medium"
+                            disabled={isLoading}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-foreground text-background rounded-xl hover:bg-foreground/90 transition-colors font-medium disabled:opacity-50"
                           >
-                            Verify
+                            {isLoading ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Verifying...
+                              </>
+                            ) : (
+                              'Verify'
+                            )}
                           </button>
 
-                          <p className="mt-4 text-center text-sm text-charcoal-light">
+                          <p className="mt-4 text-center text-sm text-muted-foreground">
                             Didn&apos;t receive the code?{' '}
-                            <button className="underline font-medium text-charcoal hover:text-primary-500">
+                            <button className="underline font-medium text-foreground hover:text-primary">
                               Resend
                             </button>
                           </p>
+
+                          <button
+                            onClick={() => {
+                              // Skip verification and try to sign in with credentials
+                              // Then go to onboarding
+                              setStep('onboarding');
+                              setOnboardingStep('classes');
+                            }}
+                            className="mt-3 w-full text-center text-sm text-muted-foreground hover:text-foreground"
+                          >
+                            Verify later via email link
+                          </button>
                         </motion.div>
                       )}
 
@@ -627,10 +687,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
                               >
-                                <h2 className="text-2xl font-bold text-charcoal mb-2">
+                                <h2 className="text-2xl font-bold text-foreground mb-2">
                                   Which AP classes are you taking?
                                 </h2>
-                                <p className="text-charcoal-light mb-6">
+                                <p className="text-muted-foreground mb-6">
                                   Select all that apply.
                                 </p>
 
@@ -642,19 +702,19 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                       disabled={cls.comingSoon}
                                       className={`w-full p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 ${
                                         cls.comingSoon
-                                          ? 'opacity-50 cursor-not-allowed border-cream-200'
+                                          ? 'opacity-50 cursor-not-allowed border-border'
                                           : selectedClasses.includes(cls.id)
-                                          ? 'border-primary-500 bg-primary-50'
-                                          : 'border-cream-300 hover:border-charcoal-light/40'
+                                          ? 'border-primary bg-primary/10'
+                                          : 'border-border hover:border-muted-foreground/40'
                                       }`}
                                     >
                                       <span className="text-xl">{cls.icon}</span>
-                                      <span className="flex-1 font-medium text-charcoal">{cls.name}</span>
+                                      <span className="flex-1 font-medium text-foreground">{cls.name}</span>
                                       {cls.comingSoon && (
-                                        <span className="text-xs text-charcoal-light">Soon</span>
+                                        <span className="text-xs text-muted-foreground">Soon</span>
                                       )}
                                       {selectedClasses.includes(cls.id) && (
-                                        <Check className="w-5 h-5 text-primary-500" />
+                                        <Check className="w-5 h-5 text-primary" />
                                       )}
                                     </button>
                                   ))}
@@ -663,7 +723,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                 <button
                                   onClick={handleOnboardingNext}
                                   disabled={selectedClasses.length === 0}
-                                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-charcoal text-white rounded-xl hover:bg-charcoal/90 transition-colors font-medium disabled:opacity-50"
+                                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-foreground text-background rounded-xl hover:bg-foreground/90 transition-colors font-medium disabled:opacity-50"
                                 >
                                   Continue
                                   <ArrowRight className="w-4 h-4" />
@@ -679,10 +739,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
                               >
-                                <h2 className="text-2xl font-bold text-charcoal mb-2">
+                                <h2 className="text-2xl font-bold text-foreground mb-2">
                                   What grade are you in?
                                 </h2>
-                                <p className="text-charcoal-light mb-6">
+                                <p className="text-muted-foreground mb-6">
                                   This helps us personalize your experience.
                                 </p>
 
@@ -693,13 +753,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                       onClick={() => setSelectedGrade(grade)}
                                       className={`w-full p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 ${
                                         selectedGrade === grade
-                                          ? 'border-primary-500 bg-primary-50'
-                                          : 'border-cream-300 hover:border-charcoal-light/40'
+                                          ? 'border-primary bg-primary/10'
+                                          : 'border-border hover:border-muted-foreground/40'
                                       }`}
                                     >
-                                      <span className="flex-1 font-medium text-charcoal">{grade}</span>
+                                      <span className="flex-1 font-medium text-foreground">{grade}</span>
                                       {selectedGrade === grade && (
-                                        <Check className="w-5 h-5 text-primary-500" />
+                                        <Check className="w-5 h-5 text-primary" />
                                       )}
                                     </button>
                                   ))}
@@ -708,7 +768,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                 <button
                                   onClick={handleOnboardingNext}
                                   disabled={!selectedGrade}
-                                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-charcoal text-white rounded-xl hover:bg-charcoal/90 transition-colors font-medium disabled:opacity-50"
+                                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-foreground text-background rounded-xl hover:bg-foreground/90 transition-colors font-medium disabled:opacity-50"
                                 >
                                   Continue
                                   <ArrowRight className="w-4 h-4" />
@@ -724,10 +784,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
                               >
-                                <h2 className="text-2xl font-bold text-charcoal mb-2">
+                                <h2 className="text-2xl font-bold text-foreground mb-2">
                                   What&apos;s your school?
                                 </h2>
-                                <p className="text-charcoal-light mb-6">
+                                <p className="text-muted-foreground mb-6">
                                   Connect with classmates taking the same courses.
                                 </p>
 
@@ -739,14 +799,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                     onKeyDown={(e) => e.key === 'Enter' && school && handleOnboardingNext()}
                                     placeholder="e.g. Lincoln High School"
                                     autoFocus
-                                    className="w-full px-4 py-3 border-2 border-cream-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 bg-background border-2 border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground placeholder:text-muted-foreground"
                                   />
                                 </div>
 
                                 <button
                                   onClick={handleOnboardingNext}
                                   disabled={isLoading}
-                                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-charcoal text-white rounded-xl hover:bg-charcoal/90 transition-colors font-medium disabled:opacity-50"
+                                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-foreground text-background rounded-xl hover:bg-foreground/90 transition-colors font-medium disabled:opacity-50"
                                 >
                                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Finish setup'}
                                   {!isLoading && <ArrowRight className="w-4 h-4" />}
@@ -757,7 +817,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                     setSchool('');
                                     handleOnboardingNext();
                                   }}
-                                  className="mt-3 w-full text-center text-sm text-charcoal-light hover:text-charcoal"
+                                  className="mt-3 w-full text-center text-sm text-muted-foreground hover:text-foreground"
                                 >
                                   Skip for now
                                 </button>
@@ -772,11 +832,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                                 animate={{ opacity: 1, scale: 1 }}
                                 className="text-center py-8"
                               >
-                                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                  <Check className="w-8 h-8 text-green-600" />
+                                <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                  <Check className="w-8 h-8 text-green-500" />
                                 </div>
-                                <h2 className="text-2xl font-bold text-charcoal mb-2">You&apos;re all set!</h2>
-                                <p className="text-charcoal-light">Redirecting to your dashboard...</p>
+                                <h2 className="text-2xl font-bold text-foreground mb-2">You&apos;re all set!</h2>
+                                <p className="text-muted-foreground">Redirecting to your dashboard...</p>
                               </motion.div>
                             )}
                           </AnimatePresence>
@@ -788,21 +848,21 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
                 {/* Right Side - Curved Gradient Background */}
                 <div className="w-1/2 h-full p-6 flex items-center justify-center">
-                  <div className="w-full h-full bg-gradient-to-br from-cream-100 via-blue-100/80 to-pink-200/90 rounded-3xl flex items-center justify-center p-12 relative overflow-hidden">
+                  <div className="w-full h-full bg-gradient-to-br from-muted via-blue-100/80 dark:via-blue-900/30 to-pink-200/90 dark:to-pink-900/30 rounded-3xl flex items-center justify-center p-12 relative overflow-hidden">
                     {/* Close Button */}
                     <button
                       onClick={handleClose}
-                      className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-white/80 hover:bg-white transition-colors z-10"
+                      className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-card/80 hover:bg-card transition-colors z-10"
                     >
-                      <X className="w-5 h-5 text-charcoal-light" />
+                      <X className="w-5 h-5 text-muted-foreground" />
                     </button>
 
                     {/* Chat Input Preview */}
                     <div className="w-full max-w-md">
-                      <div className="bg-white rounded-2xl shadow-lg p-4 flex items-center gap-3">
-                        <span className="text-charcoal-light flex-1">Ask AceAI to help you study...</span>
-                        <div className="w-10 h-10 bg-charcoal rounded-full flex items-center justify-center">
-                          <ArrowRight className="w-5 h-5 text-white" />
+                      <div className="bg-card rounded-2xl shadow-lg p-4 flex items-center gap-3 border border-border">
+                        <span className="text-muted-foreground flex-1">Ask AceAI to help you study...</span>
+                        <div className="w-10 h-10 bg-foreground rounded-full flex items-center justify-center">
+                          <ArrowRight className="w-5 h-5 text-background" />
                         </div>
                       </div>
                     </div>
