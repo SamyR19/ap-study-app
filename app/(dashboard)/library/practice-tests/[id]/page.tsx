@@ -15,6 +15,9 @@ import {
   RotateCcw,
   Copy,
   Terminal,
+  StickyNote,
+  PanelRightOpen,
+  PanelRightClose,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { PracticeTest, PracticeTestQuestion, PracticeTestAnswer } from '@/types/study-tools';
@@ -156,6 +159,41 @@ export default function PracticeTestDetailPage() {
   const [outputError, setOutputError] = useState<string | null>(null);
   const [stdinInput, setStdinInput] = useState('');
 
+  // Scratchpad state (per question)
+  const [scratchpadNotes, setScratchpadNotes] = useState<Map<number, string>>(new Map());
+  const [showScratchpad, setShowScratchpad] = useState(true);
+
+  // Get scratchpad note for current question
+  const getCurrentScratchpad = () => scratchpadNotes.get(currentIndex) || '';
+  const updateScratchpad = (value: string) => {
+    setScratchpadNotes(prev => {
+      const newMap = new Map(prev);
+      newMap.set(currentIndex, value);
+      return newMap;
+    });
+  };
+
+  // Render scratchpad content with @variable highlighting
+  const renderScratchpadContent = (text: string) => {
+    if (!text) return null;
+    // Match @variableName patterns (letters, numbers, underscores)
+    const parts = text.split(/(@\w+)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('@')) {
+        const varName = part.slice(1);
+        return (
+          <span
+            key={index}
+            className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-mono text-sm font-medium"
+          >
+            {varName}
+          </span>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   // Save progress to localStorage
   const saveProgress = () => {
     if (!testId) return;
@@ -163,6 +201,7 @@ export default function PracticeTestDetailPage() {
       currentIndex,
       answers: Array.from(answers.entries()),
       timeRemaining,
+      scratchpadNotes: Array.from(scratchpadNotes.entries()),
       savedAt: new Date().toISOString(),
     };
     localStorage.setItem(getProgressKey(testId), JSON.stringify(progressData));
@@ -179,6 +218,7 @@ export default function PracticeTestDetailPage() {
           currentIndex: data.currentIndex,
           answers: new Map(data.answers),
           timeRemaining: data.timeRemaining,
+          scratchpadNotes: data.scratchpadNotes ? new Map(data.scratchpadNotes) : new Map(),
           savedAt: new Date(data.savedAt),
         };
       } catch {
@@ -204,6 +244,9 @@ export default function PracticeTestDetailPage() {
         setCurrentIndex(saved.currentIndex);
         setAnswers(saved.answers);
         setTimeRemaining(saved.timeRemaining);
+        if (saved.scratchpadNotes) {
+          setScratchpadNotes(saved.scratchpadNotes);
+        }
       }
     }
   }, [testId, resumeTest]);
@@ -216,7 +259,7 @@ export default function PracticeTestDetailPage() {
       }, 10000); // Save every 10 seconds
       return () => clearInterval(interval);
     }
-  }, [mode, currentIndex, answers, timeRemaining]);
+  }, [mode, currentIndex, answers, timeRemaining, scratchpadNotes]);
 
   useEffect(() => {
     loadTestData();
@@ -269,6 +312,7 @@ export default function PracticeTestDetailPage() {
     clearProgress(); // Clear any saved progress when starting fresh
     setCurrentIndex(0);
     setAnswers(new Map());
+    setScratchpadNotes(new Map());
     setTimeRemaining(test?.settings?.timerMinutes ? test.settings.timerMinutes * 60 : null);
     setStdinInput('');
     setMode('taking');
@@ -470,6 +514,9 @@ export default function PracticeTestDetailPage() {
                         setCurrentIndex(saved.currentIndex);
                         setAnswers(saved.answers);
                         setTimeRemaining(saved.timeRemaining);
+                        if (saved.scratchpadNotes) {
+                          setScratchpadNotes(saved.scratchpadNotes);
+                        }
                         setMode('taking');
                       }
                     }}
@@ -624,49 +671,101 @@ export default function PracticeTestDetailPage() {
               </div>
             )}
 
-            {/* FRQ Code Editor */}
+            {/* FRQ Code Editor with Scratchpad */}
             {currentQuestion.type === 'frq' && (
               <div className="space-y-4">
-                <div className="border border-border rounded-xl overflow-hidden">
-                  <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">Java</span>
-                    <button
-                      onClick={runCode}
-                      disabled={isRunning}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-foreground text-background rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-50"
-                    >
-                      {isRunning ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Running...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-4 h-4" />
-                          Run
-                        </>
-                      )}
-                    </button>
+                <div className="flex gap-4">
+                  {/* Code Editor Section */}
+                  <div className={`flex-1 min-w-0 transition-all duration-300 ${showScratchpad ? 'w-[60%]' : 'w-full'}`}>
+                    <div className="border border-border rounded-xl overflow-hidden">
+                      <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
+                        <span className="text-sm font-medium text-foreground">Java</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setShowScratchpad(!showScratchpad)}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-sm transition-colors"
+                            title={showScratchpad ? 'Hide scratchpad' : 'Show scratchpad'}
+                          >
+                            {showScratchpad ? (
+                              <PanelRightClose className="w-4 h-4" />
+                            ) : (
+                              <PanelRightOpen className="w-4 h-4" />
+                            )}
+                            <StickyNote className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={runCode}
+                            disabled={isRunning}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-foreground text-background rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-50"
+                          >
+                            {isRunning ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Running...
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-4 h-4" />
+                                Run
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      <Editor
+                        height="300px"
+                        defaultLanguage="java"
+                        value={typeof currentAnswer?.answer === 'string' ? currentAnswer.answer : ''}
+                        onChange={(value) => handleFRQAnswer(value || '')}
+                        theme={isDark ? 'vs-dark' : 'vs-light'}
+                        options={{
+                          minimap: { enabled: false },
+                          fontSize: 14,
+                          fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+                          lineNumbers: 'on',
+                          scrollBeyondLastLine: false,
+                          automaticLayout: true,
+                          tabSize: 4,
+                          wordWrap: 'on',
+                          padding: { top: 16, bottom: 16 },
+                        }}
+                      />
+                    </div>
                   </div>
-                  <Editor
-                    height="300px"
-                    defaultLanguage="java"
-                    value={typeof currentAnswer?.answer === 'string' ? currentAnswer.answer : ''}
-                    onChange={(value) => handleFRQAnswer(value || '')}
-                    theme={isDark ? 'vs-dark' : 'vs-light'}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 14,
-                      fontFamily: 'JetBrains Mono, ui-monospace, monospace',
-                      lineNumbers: 'on',
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                      tabSize: 4,
-                      wordWrap: 'on',
-                      padding: { top: 16, bottom: 16 },
-                    }}
-                  />
+
+                  {/* Scratchpad Panel */}
+                  {showScratchpad && (
+                    <div className="w-[40%] min-w-[280px] flex-shrink-0">
+                      <div className="border border-border rounded-xl overflow-hidden h-full flex flex-col">
+                        <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <StickyNote className="w-4 h-4 text-amber-500" />
+                            <span className="text-sm font-medium text-foreground">Scratchpad</span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">Use @var to highlight</span>
+                        </div>
+                        <div className="flex-1 flex flex-col">
+                          <textarea
+                            value={getCurrentScratchpad()}
+                            onChange={(e) => updateScratchpad(e.target.value)}
+                            placeholder="Track variable values here...&#10;&#10;Example:&#10;@i = 0, 1, 2, 3&#10;@count = 0, 1, 2&#10;@sum = 0, 5, 10"
+                            className="flex-1 w-full px-4 py-3 bg-amber-50/50 dark:bg-amber-950/20 text-foreground font-mono text-sm focus:outline-none resize-none placeholder:text-muted-foreground min-h-[200px]"
+                          />
+                          {/* Preview with highlighted variables */}
+                          {getCurrentScratchpad() && (
+                            <div className="px-4 py-3 border-t border-border bg-background">
+                              <p className="text-xs text-muted-foreground mb-2">Preview:</p>
+                              <div className="text-sm font-mono whitespace-pre-wrap leading-relaxed">
+                                {renderScratchpadContent(getCurrentScratchpad())}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 {/* Input for Scanner */}
                 <div className="border border-border rounded-xl overflow-hidden">
                   <div className="bg-muted px-4 py-2 border-b border-border flex items-center gap-2">
