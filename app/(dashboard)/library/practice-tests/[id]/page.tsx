@@ -671,112 +671,60 @@ export default function PracticeTestDetailPage() {
               </div>
             )}
 
-            {/* FRQ Code Editor with Scratchpad */}
+            {/* FRQ Code Editor */}
             {currentQuestion.type === 'frq' && (
               <div className="space-y-4">
-                <div className="flex gap-4">
-                  {/* Code Editor Section */}
-                  <div className={`flex-1 min-w-0 transition-all duration-300 ${showScratchpad ? 'w-[60%]' : 'w-full'}`}>
-                    <div className="border border-border rounded-xl overflow-hidden">
-                      <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
-                        <span className="text-sm font-medium text-foreground">Java</span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setShowScratchpad(!showScratchpad)}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-sm transition-colors"
-                            title={showScratchpad ? 'Hide scratchpad' : 'Show scratchpad'}
-                          >
-                            {showScratchpad ? (
-                              <PanelRightClose className="w-4 h-4" />
-                            ) : (
-                              <PanelRightOpen className="w-4 h-4" />
-                            )}
-                            <StickyNote className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={runCode}
-                            disabled={isRunning}
-                            className="flex items-center gap-2 px-3 py-1.5 bg-foreground text-background rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-50"
-                          >
-                            {isRunning ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Running...
-                              </>
-                            ) : (
-                              <>
-                                <Play className="w-4 h-4" />
-                                Run
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                      <Editor
-                        height="300px"
-                        defaultLanguage="java"
-                        value={typeof currentAnswer?.answer === 'string' ? currentAnswer.answer : ''}
-                        onChange={(value) => handleFRQAnswer(value || '')}
-                        theme={isDark ? 'vs-dark' : 'vs-light'}
-                        options={{
-                          minimap: { enabled: false },
-                          fontSize: 14,
-                          fontFamily: 'JetBrains Mono, ui-monospace, monospace',
-                          lineNumbers: 'on',
-                          scrollBeyondLastLine: false,
-                          automaticLayout: true,
-                          tabSize: 4,
-                          wordWrap: 'on',
-                          padding: { top: 16, bottom: 16 },
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Scratchpad Panel */}
-                  {showScratchpad && (
-                    <div className="w-[40%] min-w-[280px] flex-shrink-0">
-                      <div className="border border-border rounded-xl overflow-hidden h-full flex flex-col">
-                        <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <StickyNote className="w-4 h-4 text-amber-500" />
-                            <span className="text-sm font-medium text-foreground">Scratchpad</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">Use @var to highlight</span>
-                        </div>
-                        <div className="flex-1 flex flex-col">
-                          <textarea
-                            value={getCurrentScratchpad()}
-                            onChange={(e) => updateScratchpad(e.target.value)}
-                            placeholder="Track variable values here...&#10;&#10;Example:&#10;@i = 0, 1, 2, 3&#10;@count = 0, 1, 2&#10;@sum = 0, 5, 10"
-                            className="flex-1 w-full px-4 py-3 bg-amber-50/50 dark:bg-amber-950/20 text-foreground font-mono text-sm focus:outline-none resize-none placeholder:text-muted-foreground min-h-[200px]"
-                          />
-                          {/* Preview with highlighted variables */}
-                          {getCurrentScratchpad() && (
-                            <div className="px-4 py-3 border-t border-border bg-background">
-                              <p className="text-xs text-muted-foreground mb-2">Preview:</p>
-                              <div className="text-sm font-mono whitespace-pre-wrap leading-relaxed">
-                                {renderScratchpadContent(getCurrentScratchpad())}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Input for Scanner */}
                 <div className="border border-border rounded-xl overflow-hidden">
-                  <div className="bg-muted px-4 py-2 border-b border-border flex items-center gap-2">
-                    <Terminal className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium text-foreground">Input (for Scanner)</span>
+                  <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground">Java</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setShowScratchpad(!showScratchpad)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm transition-colors ${
+                          showScratchpad
+                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'
+                        }`}
+                        title={showScratchpad ? 'Hide scratchpad' : 'Show scratchpad'}
+                      >
+                        <StickyNote className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={runCode}
+                        disabled={isRunning}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-foreground text-background rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-50"
+                      >
+                        {isRunning ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Running...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-4 h-4" />
+                            Run
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <textarea
-                    value={stdinInput}
-                    onChange={(e) => setStdinInput(e.target.value)}
-                    placeholder="Enter input here (each line is read by Scanner.nextLine())"
-                    className="w-full h-20 px-4 py-3 bg-background text-foreground font-mono text-sm focus:outline-none resize-none placeholder:text-muted-foreground"
+                  <Editor
+                    height="300px"
+                    defaultLanguage="java"
+                    value={typeof currentAnswer?.answer === 'string' ? currentAnswer.answer : ''}
+                    onChange={(value) => handleFRQAnswer(value || '')}
+                    theme={isDark ? 'vs-dark' : 'vs-light'}
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+                      lineNumbers: 'on',
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      tabSize: 4,
+                      wordWrap: 'on',
+                      padding: { top: 16, bottom: 16 },
+                    }}
                   />
                 </div>
               </div>
@@ -967,15 +915,38 @@ export default function PracticeTestDetailPage() {
               </div>
 
               {/* Modal Content */}
-              <div className="p-6">
+              <div className="p-6 space-y-4">
+                {/* Scanner Input - show if Scanner detected in code */}
+                {(() => {
+                  const currentCode = typeof answers.get(currentIndex)?.answer === 'string'
+                    ? answers.get(currentIndex)?.answer as string
+                    : '';
+                  const usesScanner = /\bScanner\b/.test(currentCode);
+                  return usesScanner && (
+                    <div className="border border-border rounded-xl overflow-hidden">
+                      <div className="bg-muted px-4 py-2 border-b border-border flex items-center gap-2">
+                        <Terminal className="w-4 h-4 text-blue-500" />
+                        <span className="text-sm font-medium text-foreground">Input (for Scanner)</span>
+                      </div>
+                      <textarea
+                        value={stdinInput}
+                        onChange={(e) => setStdinInput(e.target.value)}
+                        placeholder="Enter input here (each line is read by Scanner.nextLine())"
+                        className="w-full h-20 px-4 py-3 bg-background text-foreground font-mono text-sm focus:outline-none resize-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                  );
+                })()}
+
+                {/* Output */}
                 {isRunning ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-8 h-8 animate-spin text-foreground-light" />
                   </div>
                 ) : outputError ? (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                    <p className="text-sm font-medium text-red-600 mb-1">Error</p>
-                    <pre className="text-sm text-red-700 font-mono whitespace-pre-wrap">
+                  <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl p-4">
+                    <p className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">Error</p>
+                    <pre className="text-sm text-red-700 dark:text-red-300 font-mono whitespace-pre-wrap">
                       {outputError}
                     </pre>
                   </div>
@@ -989,16 +960,77 @@ export default function PracticeTestDetailPage() {
               </div>
 
               {/* Modal Footer */}
-              <div className="px-6 py-4 border-t border-border flex justify-end">
+              <div className="px-6 py-4 border-t border-border flex justify-between">
+                {(() => {
+                  const currentCode = typeof answers.get(currentIndex)?.answer === 'string'
+                    ? answers.get(currentIndex)?.answer as string
+                    : '';
+                  const usesScanner = /\bScanner\b/.test(currentCode);
+                  return usesScanner && !isRunning && (
+                    <button
+                      onClick={runCode}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-colors"
+                    >
+                      <Play className="w-4 h-4" />
+                      Run Again
+                    </button>
+                  );
+                })()}
                 <button
                   onClick={() => setShowOutputModal(false)}
-                  className="px-4 py-2 bg-foreground text-white rounded-xl font-medium hover:bg-foreground/90 transition-colors"
+                  className="px-4 py-2 bg-foreground text-white rounded-xl font-medium hover:bg-foreground/90 transition-colors ml-auto"
                 >
                   Close
                 </button>
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Scratchpad Panel */}
+      <AnimatePresence>
+        {showScratchpad && mode === 'taking' && currentQuestion?.type === 'frq' && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="fixed right-6 top-1/2 -translate-y-1/2 w-72 z-40"
+          >
+            <div className="bg-card border border-border rounded-2xl shadow-xl overflow-hidden">
+              <div className="bg-amber-50 dark:bg-amber-950/30 px-4 py-3 border-b border-border flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <StickyNote className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">Scratchpad</span>
+                </div>
+                <button
+                  onClick={() => setShowScratchpad(false)}
+                  className="p-1 rounded hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+                >
+                  <X className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                </button>
+              </div>
+              <div className="p-3 max-h-80 overflow-y-auto bg-amber-50/50 dark:bg-amber-950/20">
+                {getCurrentScratchpad() ? (
+                  <div className="text-sm font-mono whitespace-pre-wrap leading-relaxed">
+                    {renderScratchpadContent(getCurrentScratchpad())}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    Type @var to track variables...
+                  </p>
+                )}
+              </div>
+              <div className="border-t border-border">
+                <textarea
+                  value={getCurrentScratchpad()}
+                  onChange={(e) => updateScratchpad(e.target.value)}
+                  placeholder="@i = 0, 1, 2&#10;@count = 0, 1&#10;@sum = 5, 10"
+                  className="w-full px-3 py-2 bg-background text-foreground font-mono text-sm focus:outline-none resize-none placeholder:text-muted-foreground h-24"
+                />
+              </div>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
