@@ -20,13 +20,17 @@ import { supabase } from '@/lib/supabase';
 import { PracticeTest, PracticeTestQuestion, PracticeTestAnswer } from '@/types/study-tools';
 import Editor from '@monaco-editor/react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { oneLight, oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '@/components/providers/ThemeProvider';
+
+// Local storage key for saving progress
+const getProgressKey = (testId: string) => `practice-test-progress-${testId}`;
 
 type Mode = 'preview' | 'taking' | 'results';
 
 // Code block component for displaying code in questions
-const CodeBlock = ({ language, children }: { language: string; children: string }) => {
+const CodeBlock = ({ language, children, isDark }: { language: string; children: string; isDark?: boolean }) => {
   const [copied, setCopied] = useState(false);
 
   const copyCode = () => {
@@ -36,25 +40,25 @@ const CodeBlock = ({ language, children }: { language: string; children: string 
   };
 
   return (
-    <div className="my-4 rounded-xl overflow-hidden border border-cream-200 bg-cream-50/50">
+    <div className="my-4 rounded-xl overflow-hidden border border-border bg-muted/50">
       <div className="flex items-center justify-between px-4 py-2">
-        <span className="text-xs text-charcoal-light font-medium">{language || 'code'}</span>
+        <span className="text-xs text-muted-foreground font-medium">{language || 'code'}</span>
         <button
           onClick={copyCode}
-          className="p-1.5 rounded-md hover:bg-cream-200/50 transition-colors"
+          className="p-1.5 rounded-md hover:bg-muted transition-colors"
           title="Copy code"
         >
           {copied ? (
             <Check className="w-4 h-4 text-green-500" />
           ) : (
-            <Copy className="w-4 h-4 text-charcoal-light" />
+            <Copy className="w-4 h-4 text-muted-foreground" />
           )}
         </button>
       </div>
       <div className="px-4 pb-4 overflow-x-auto">
         <SyntaxHighlighter
           language={language || 'java'}
-          style={oneLight}
+          style={isDark ? oneDark : oneLight}
           showLineNumbers={false}
           wrapLines={false}
           customStyle={{
@@ -126,10 +130,14 @@ export default function PracticeTestDetailPage() {
   const searchParams = useSearchParams();
   const testId = params.id as string;
   const autoStart = searchParams.get('start') === 'true';
+  const resumeTest = searchParams.get('resume') === 'true';
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   const [test, setTest] = useState<PracticeTest | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [mode, setMode] = useState<Mode>(autoStart ? 'taking' : 'preview');
+  const [mode, setMode] = useState<Mode>(autoStart || resumeTest ? 'taking' : 'preview');
+  const [hasSavedProgress, setHasSavedProgress] = useState(false);
 
   // Test taking state
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -146,6 +154,69 @@ export default function PracticeTestDetailPage() {
   const [codeOutput, setCodeOutput] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [outputError, setOutputError] = useState<string | null>(null);
+  const [stdinInput, setStdinInput] = useState('');
+
+  // Save progress to localStorage
+  const saveProgress = () => {
+    if (!testId) return;
+    const progressData = {
+      currentIndex,
+      answers: Array.from(answers.entries()),
+      timeRemaining,
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(getProgressKey(testId), JSON.stringify(progressData));
+  };
+
+  // Load progress from localStorage
+  const loadProgress = () => {
+    if (!testId) return null;
+    const saved = localStorage.getItem(getProgressKey(testId));
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        return {
+          currentIndex: data.currentIndex,
+          answers: new Map(data.answers),
+          timeRemaining: data.timeRemaining,
+          savedAt: new Date(data.savedAt),
+        };
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  // Clear saved progress
+  const clearProgress = () => {
+    if (!testId) return;
+    localStorage.removeItem(getProgressKey(testId));
+    setHasSavedProgress(false);
+  };
+
+  // Check for saved progress on load
+  useEffect(() => {
+    const saved = loadProgress();
+    if (saved) {
+      setHasSavedProgress(true);
+      if (resumeTest) {
+        setCurrentIndex(saved.currentIndex);
+        setAnswers(saved.answers);
+        setTimeRemaining(saved.timeRemaining);
+      }
+    }
+  }, [testId, resumeTest]);
+
+  // Auto-save progress periodically
+  useEffect(() => {
+    if (mode === 'taking') {
+      const interval = setInterval(() => {
+        saveProgress();
+      }, 10000); // Save every 10 seconds
+      return () => clearInterval(interval);
+    }
+  }, [mode, currentIndex, answers, timeRemaining]);
 
   useEffect(() => {
     loadTestData();
@@ -195,9 +266,11 @@ export default function PracticeTestDetailPage() {
   };
 
   const startTest = () => {
+    clearProgress(); // Clear any saved progress when starting fresh
     setCurrentIndex(0);
     setAnswers(new Map());
     setTimeRemaining(test?.settings?.timerMinutes ? test.settings.timerMinutes * 60 : null);
+    setStdinInput('');
     setMode('taking');
   };
 
@@ -231,7 +304,7 @@ export default function PracticeTestDetailPage() {
     const code = typeof answer?.answer === 'string' ? answer.answer : '';
 
     if (!code.trim()) {
-      setOutputError('No code to run');
+      setOutputError('No code to run. Please write some code first.');
       setShowOutputModal(true);
       return;
     }
@@ -248,6 +321,7 @@ export default function PracticeTestDetailPage() {
         body: JSON.stringify({
           code,
           language: 'java',
+          stdin: stdinInput, // Pass stdin input for Scanner
         }),
       });
 
@@ -256,10 +330,10 @@ export default function PracticeTestDetailPage() {
       if (data.error) {
         setOutputError(data.error);
       } else {
-        setCodeOutput(data.output || 'No output');
+        setCodeOutput(data.output || 'Program completed with no output.');
       }
     } catch {
-      setOutputError('Failed to execute code. Please try again.');
+      setOutputError('Network error: Unable to connect to code execution service. Check your internet connection.');
     } finally {
       setIsRunning(false);
     }
@@ -333,7 +407,7 @@ export default function PracticeTestDetailPage() {
   if (!test) {
     return (
       <div className="text-center py-16">
-        <p className="text-charcoal-light">Practice test not found</p>
+        <p className="text-foreground-light">Practice test not found</p>
       </div>
     );
   }
@@ -349,13 +423,13 @@ export default function PracticeTestDetailPage() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => mode === 'taking' ? setMode('preview') : router.push('/library/practice-tests')}
-            className="p-2 rounded-lg hover:bg-cream-100 transition-colors"
+            className="p-2 rounded-lg hover:bg-muted transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 text-charcoal" />
+            <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-charcoal">{test.title}</h1>
-            <p className="text-charcoal-light">
+            <h1 className="text-2xl font-bold text-foreground">{test.title}</h1>
+            <p className="text-foreground-light">
               {questions.length} questions
               {test.settings?.timerMinutes && ` • ${test.settings.timerMinutes} minutes`}
             </p>
@@ -364,7 +438,7 @@ export default function PracticeTestDetailPage() {
 
         {mode === 'taking' && timeRemaining !== null && (
           <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${
-            timeRemaining < 60 ? 'bg-red-100 text-red-600' : 'bg-cream-100 text-charcoal'
+            timeRemaining < 60 ? 'bg-red-100 text-red-600' : 'bg-muted text-foreground'
           }`}>
             <Clock className="w-5 h-5" />
             <span className="font-mono font-medium">{formatTime(timeRemaining)}</span>
@@ -375,38 +449,73 @@ export default function PracticeTestDetailPage() {
       {/* Preview Mode */}
       {mode === 'preview' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-cream-200 p-6 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-purple-100 rounded-2xl flex items-center justify-center">
-              <Play className="w-8 h-8 text-purple-600" />
+          <div className="bg-card rounded-xl border border-border p-6 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-purple-100 dark:bg-purple-900/30 rounded-2xl flex items-center justify-center">
+              <Play className="w-8 h-8 text-purple-600 dark:text-purple-400" />
             </div>
-            <h2 className="text-xl font-semibold text-charcoal mb-2">Ready to start?</h2>
-            <p className="text-charcoal-light mb-6">
+            <h2 className="text-xl font-semibold text-foreground mb-2">
+              {hasSavedProgress ? 'Resume your test?' : 'Ready to start?'}
+            </h2>
+            <p className="text-muted-foreground mb-6">
               This test has {questions.length} questions.
               {test.settings?.timerMinutes && ` You'll have ${test.settings.timerMinutes} minutes to complete it.`}
             </p>
-            <button
-              onClick={startTest}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-charcoal text-white rounded-xl font-medium hover:bg-charcoal/90 transition-colors"
-            >
-              <Play className="w-5 h-5" />
-              Start Test
-            </button>
+            <div className="flex items-center justify-center gap-3">
+              {hasSavedProgress && (
+                <>
+                  <button
+                    onClick={() => {
+                      const saved = loadProgress();
+                      if (saved) {
+                        setCurrentIndex(saved.currentIndex);
+                        setAnswers(saved.answers);
+                        setTimeRemaining(saved.timeRemaining);
+                        setMode('taking');
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-xl font-medium hover:bg-primary-600 transition-colors"
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                    Resume ({loadProgress()?.currentIndex !== undefined ? loadProgress()!.currentIndex + 1 : 1}/{questions.length})
+                  </button>
+                  <button
+                    onClick={() => {
+                      clearProgress();
+                      startTest();
+                    }}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors"
+                  >
+                    <Play className="w-5 h-5" />
+                    Start Over
+                  </button>
+                </>
+              )}
+              {!hasSavedProgress && (
+                <button
+                  onClick={startTest}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-foreground text-background rounded-xl font-medium hover:opacity-90 transition-colors"
+                >
+                  <Play className="w-5 h-5" />
+                  Start Test
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Question Preview */}
-          <div className="bg-white rounded-xl border border-cream-200 overflow-hidden">
-            <div className="p-4 border-b border-cream-200">
-              <h3 className="font-semibold text-charcoal">Questions Overview</h3>
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="p-4 border-b border-border">
+              <h3 className="font-semibold text-foreground">Questions Overview</h3>
             </div>
-            <div className="divide-y divide-cream-100">
+            <div className="divide-y divide-border">
               {questions.map((q, index) => (
                 <div key={q.id} className="p-4 flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-lg bg-cream-100 flex items-center justify-center text-sm font-medium text-charcoal">
+                  <span className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-sm font-medium text-foreground">
                     {index + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-charcoal truncate">{q.question}</p>
-                    <p className="text-sm text-charcoal-light">
+                    <p className="text-foreground truncate">{q.question}</p>
+                    <p className="text-sm text-foreground-light">
                       {q.type === 'mcq' ? 'Multiple Choice' : 'Free Response'} • {q.difficulty}
                     </p>
                   </div>
@@ -422,19 +531,19 @@ export default function PracticeTestDetailPage() {
         <div className="space-y-6">
           {/* Progress */}
           <div className="flex items-center gap-4">
-            <div className="flex-1 h-2 bg-cream-200 rounded-full overflow-hidden">
+            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-charcoal transition-all duration-300"
+                className="h-full bg-foreground transition-all duration-300"
                 style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
               />
             </div>
-            <span className="text-sm text-charcoal-light">
+            <span className="text-sm text-foreground-light">
               {currentIndex + 1} / {questions.length}
             </span>
           </div>
 
           {/* Question */}
-          <div className="bg-white rounded-xl border border-cream-200 p-6">
+          <div className="bg-card rounded-xl border border-border p-6">
             <div className="flex items-center gap-2 mb-4">
               <span className={`px-2 py-1 text-xs font-medium rounded ${
                 currentQuestion.type === 'mcq'
@@ -458,7 +567,7 @@ export default function PracticeTestDetailPage() {
             <div className="mb-6">
               {parseQuestionContent(currentQuestion.question).map((part, idx) => (
                 part.type === 'text' ? (
-                  <p key={idx} className="text-lg text-charcoal">{part.content}</p>
+                  <p key={idx} className="text-lg text-foreground">{part.content}</p>
                 ) : (
                   <CodeBlock key={idx} language={part.language || 'java'}>
                     {part.content}
@@ -480,14 +589,14 @@ export default function PracticeTestDetailPage() {
                       onClick={() => handleMCQAnswer(choice.index)}
                       className={`w-full flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-colors ${
                         currentAnswer?.answer === choice.index
-                          ? 'border-charcoal bg-cream-100'
-                          : 'border-cream-200 hover:border-charcoal-light'
+                          ? 'border-foreground bg-muted'
+                          : 'border-border hover:border-foreground-light'
                       }`}
                     >
                       <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-medium flex-shrink-0 ${
                         currentAnswer?.answer === choice.index
-                          ? 'bg-charcoal text-white'
-                          : 'bg-cream-100 text-charcoal'
+                          ? 'bg-foreground text-white'
+                          : 'bg-muted text-foreground'
                       }`}>
                         {String.fromCharCode(65 + choice.index)}
                       </span>
@@ -495,18 +604,18 @@ export default function PracticeTestDetailPage() {
                         {hasCode ? (
                           choiceParts.map((part, pIdx) => (
                             part.type === 'text' ? (
-                              <span key={pIdx} className="text-charcoal">{part.content}</span>
+                              <span key={pIdx} className="text-foreground">{part.content}</span>
                             ) : (
                               <code
                                 key={pIdx}
-                                className="block bg-cream-50 px-3 py-2 rounded-lg font-mono text-sm mt-2 overflow-x-auto"
+                                className="block bg-muted px-3 py-2 rounded-lg font-mono text-sm mt-2 overflow-x-auto"
                               >
                                 {part.content}
                               </code>
                             )
                           ))
                         ) : (
-                          <span className="text-charcoal">{choice.text}</span>
+                          <span className="text-foreground">{choice.text}</span>
                         )}
                       </div>
                     </button>
@@ -518,13 +627,13 @@ export default function PracticeTestDetailPage() {
             {/* FRQ Code Editor */}
             {currentQuestion.type === 'frq' && (
               <div className="space-y-4">
-                <div className="border border-cream-200 rounded-xl overflow-hidden">
-                  <div className="bg-cream-50 px-4 py-2 border-b border-cream-200 flex items-center justify-between">
-                    <span className="text-sm font-medium text-charcoal">Java</span>
+                <div className="border border-border rounded-xl overflow-hidden">
+                  <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground">Java</span>
                     <button
                       onClick={runCode}
                       disabled={isRunning}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-charcoal text-white rounded-lg text-sm font-medium hover:bg-charcoal/90 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-foreground text-background rounded-lg text-sm font-medium hover:opacity-90 transition-colors disabled:opacity-50"
                     >
                       {isRunning ? (
                         <>
@@ -544,7 +653,7 @@ export default function PracticeTestDetailPage() {
                     defaultLanguage="java"
                     value={typeof currentAnswer?.answer === 'string' ? currentAnswer.answer : ''}
                     onChange={(value) => handleFRQAnswer(value || '')}
-                    theme="vs-light"
+                    theme={isDark ? 'vs-dark' : 'vs-light'}
                     options={{
                       minimap: { enabled: false },
                       fontSize: 14,
@@ -558,6 +667,19 @@ export default function PracticeTestDetailPage() {
                     }}
                   />
                 </div>
+                {/* Input for Scanner */}
+                <div className="border border-border rounded-xl overflow-hidden">
+                  <div className="bg-muted px-4 py-2 border-b border-border flex items-center gap-2">
+                    <Terminal className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-foreground">Input (for Scanner)</span>
+                  </div>
+                  <textarea
+                    value={stdinInput}
+                    onChange={(e) => setStdinInput(e.target.value)}
+                    placeholder="Enter input here (each line is read by Scanner.nextLine())"
+                    className="w-full h-20 px-4 py-3 bg-background text-foreground font-mono text-sm focus:outline-none resize-none placeholder:text-muted-foreground"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -567,7 +689,7 @@ export default function PracticeTestDetailPage() {
             <button
               onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
               disabled={currentIndex === 0}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cream-100 text-charcoal hover:bg-cream-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-muted text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-5 h-5" />
               Previous
@@ -584,7 +706,7 @@ export default function PracticeTestDetailPage() {
             ) : (
               <button
                 onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
-                className="flex items-center gap-2 px-4 py-2 bg-charcoal text-white rounded-xl hover:bg-charcoal/90 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-foreground text-white rounded-xl hover:bg-foreground/90 transition-colors"
               >
                 Next
                 <ChevronRight className="w-5 h-5" />
@@ -598,28 +720,28 @@ export default function PracticeTestDetailPage() {
       {mode === 'results' && (
         <div className="space-y-6">
           {/* Score Summary */}
-          <div className="bg-white rounded-xl border border-cream-200 p-8 text-center">
+          <div className="bg-card rounded-xl border border-border p-8 text-center">
             <div className="w-20 h-20 mx-auto mb-4 bg-primary-100 rounded-full flex items-center justify-center">
               <Trophy className="w-10 h-10 text-primary-500" />
             </div>
-            <h2 className="text-2xl font-bold text-charcoal mb-2">Test Complete!</h2>
-            <p className="text-4xl font-bold text-charcoal mb-1">
+            <h2 className="text-2xl font-bold text-foreground mb-2">Test Complete!</h2>
+            <p className="text-4xl font-bold text-foreground mb-1">
               {score} / {maxScore}
             </p>
-            <p className="text-charcoal-light mb-6">
+            <p className="text-foreground-light mb-6">
               {Math.round((score / maxScore) * 100)}% correct
             </p>
             <div className="flex items-center justify-center gap-4">
               <button
                 onClick={startTest}
-                className="flex items-center gap-2 px-4 py-2 bg-cream-100 text-charcoal rounded-xl hover:bg-cream-200 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-muted text-foreground rounded-xl hover:bg-muted transition-colors"
               >
                 <RotateCcw className="w-4 h-4" />
                 Retake Test
               </button>
               <button
                 onClick={() => router.push('/library/practice-tests')}
-                className="flex items-center gap-2 px-4 py-2 bg-charcoal text-white rounded-xl hover:bg-charcoal/90 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-foreground text-white rounded-xl hover:bg-foreground/90 transition-colors"
               >
                 Back to Tests
               </button>
@@ -627,11 +749,11 @@ export default function PracticeTestDetailPage() {
           </div>
 
           {/* Question Review */}
-          <div className="bg-white rounded-xl border border-cream-200 overflow-hidden">
-            <div className="p-4 border-b border-cream-200">
-              <h3 className="font-semibold text-charcoal">Review Answers</h3>
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            <div className="p-4 border-b border-border">
+              <h3 className="font-semibold text-foreground">Review Answers</h3>
             </div>
-            <div className="divide-y divide-cream-100">
+            <div className="divide-y divide-border">
               {questions.map((q, index) => {
                 const answer = answers.get(index);
                 const isCorrect = q.type === 'mcq' && answer?.isCorrect;
@@ -645,7 +767,7 @@ export default function PracticeTestDetailPage() {
                           ? isCorrect
                             ? 'bg-green-100 text-green-600'
                             : 'bg-red-100 text-red-600'
-                          : 'bg-cream-100 text-charcoal'
+                          : 'bg-muted text-foreground'
                       }`}>
                         {q.type === 'mcq' ? (
                           isCorrect ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />
@@ -658,7 +780,7 @@ export default function PracticeTestDetailPage() {
                         <div className="mb-2">
                           {questionParts.map((part, pIdx) => (
                             part.type === 'text' ? (
-                              <p key={pIdx} className="text-charcoal font-medium">{part.content}</p>
+                              <p key={pIdx} className="text-foreground font-medium">{part.content}</p>
                             ) : (
                               <CodeBlock key={pIdx} language={part.language || 'java'}>
                                 {part.content}
@@ -669,7 +791,7 @@ export default function PracticeTestDetailPage() {
 
                         {q.type === 'mcq' && (
                           <div className="space-y-1 text-sm">
-                            <p className="text-charcoal-light">
+                            <p className="text-foreground-light">
                               Your answer: {answer?.answer !== undefined
                                 ? q.choices?.[answer.answer as number]?.text || 'Not answered'
                                 : 'Not answered'}
@@ -683,9 +805,9 @@ export default function PracticeTestDetailPage() {
                         )}
 
                         {q.type === 'frq' && answer?.answer && (
-                          <div className="bg-cream-50 rounded-xl border border-cream-200 overflow-hidden">
-                            <div className="bg-cream-100 px-4 py-2 border-b border-cream-200">
-                              <span className="text-xs font-medium text-charcoal-light">Your Code</span>
+                          <div className="bg-muted rounded-xl border border-border overflow-hidden">
+                            <div className="bg-muted px-4 py-2 border-b border-border">
+                              <span className="text-xs font-medium text-foreground-light">Your Code</span>
                             </div>
                             <pre className="p-4 text-sm font-mono overflow-x-auto">
                               {answer.answer as string}
@@ -722,26 +844,26 @@ export default function PracticeTestDetailPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
+              className="relative bg-card rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-cream-200">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-cream-100 flex items-center justify-center">
-                    <Terminal className="w-5 h-5 text-charcoal" />
+                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+                    <Terminal className="w-5 h-5 text-foreground" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-charcoal">Output</h3>
-                    <p className="text-sm text-charcoal-light">
+                    <h3 className="font-semibold text-foreground">Output</h3>
+                    <p className="text-sm text-foreground-light">
                       {isRunning ? 'Running code...' : 'Execution result'}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowOutputModal(false)}
-                  className="p-2 rounded-lg hover:bg-cream-100 transition-colors"
+                  className="p-2 rounded-lg hover:bg-muted transition-colors"
                 >
-                  <X className="w-5 h-5 text-charcoal-light" />
+                  <X className="w-5 h-5 text-foreground-light" />
                 </button>
               </div>
 
@@ -749,7 +871,7 @@ export default function PracticeTestDetailPage() {
               <div className="p-6">
                 {isRunning ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-8 h-8 animate-spin text-charcoal-light" />
+                    <Loader2 className="w-8 h-8 animate-spin text-foreground-light" />
                   </div>
                 ) : outputError ? (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4">
@@ -759,8 +881,8 @@ export default function PracticeTestDetailPage() {
                     </pre>
                   </div>
                 ) : (
-                  <div className="bg-cream-50 border border-cream-200 rounded-xl p-4">
-                    <pre className="text-sm text-charcoal font-mono whitespace-pre-wrap">
+                  <div className="bg-muted border border-border rounded-xl p-4">
+                    <pre className="text-sm text-foreground font-mono whitespace-pre-wrap">
                       {codeOutput || 'No output'}
                     </pre>
                   </div>
@@ -768,10 +890,10 @@ export default function PracticeTestDetailPage() {
               </div>
 
               {/* Modal Footer */}
-              <div className="px-6 py-4 border-t border-cream-200 flex justify-end">
+              <div className="px-6 py-4 border-t border-border flex justify-end">
                 <button
                   onClick={() => setShowOutputModal(false)}
-                  className="px-4 py-2 bg-charcoal text-white rounded-xl font-medium hover:bg-charcoal/90 transition-colors"
+                  className="px-4 py-2 bg-foreground text-white rounded-xl font-medium hover:bg-foreground/90 transition-colors"
                 >
                   Close
                 </button>

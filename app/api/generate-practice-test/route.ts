@@ -49,7 +49,7 @@ function parseAIResponse(content: string): BatchResult {
 
   try {
     return JSON.parse(jsonStr);
-  } catch (e) {
+  } catch {
     // Try to fix common JSON issues
     // Remove trailing commas
     jsonStr = jsonStr.replace(/,(\s*[}\]])/g, '$1');
@@ -153,8 +153,8 @@ Respond ONLY with valid JSON in this exact format (no markdown, no extra text):
           : `Create unique practice test questions (batch ${batchNumber}) based on this study material:\n${contentSummary}`,
       },
     ],
-    temperature: 0.8, // Slightly higher for more variety
-    max_tokens: 8000, // Increased for larger batches
+    temperature: 0.8,
+    max_tokens: 8000,
   });
 
   const content = response.choices[0]?.message?.content;
@@ -172,6 +172,8 @@ Respond ONLY with valid JSON in this exact format (no markdown, no extra text):
 }
 
 export async function POST(request: NextRequest) {
+  const encoder = new TextEncoder();
+
   try {
     const { sourceContent, settings } = await request.json();
 
@@ -182,18 +184,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const { questionCount, questionTypes } = settings;
+    const { questionCount, questionTypes, mcqRatio } = settings;
 
     // Build content summary for the AI
     let contentSummary = '';
     let isFromPrompt = false;
 
-    // Check if generating from a prompt
     if (sourceContent.prompt && typeof sourceContent.prompt === 'string') {
       contentSummary = sourceContent.prompt;
       isFromPrompt = true;
     } else {
-      // From existing materials
       if (sourceContent.flashcardSets?.length > 0) {
         for (const set of sourceContent.flashcardSets) {
           contentSummary += '\n\nFlashcard Set Content:\n';
@@ -229,13 +229,14 @@ export async function POST(request: NextRequest) {
     const includesMCQ = questionTypes.includes('mcq');
     const includesFRQ = questionTypes.includes('frq');
 
-    // Calculate total MCQ and FRQ counts (50/50 split when both selected)
+    // Calculate total MCQ and FRQ counts
     let totalMCQ = 0;
     let totalFRQ = 0;
 
     if (includesMCQ && includesFRQ) {
-      // Equal 50/50 split
-      totalMCQ = Math.floor(questionCount / 2);
+      // Use custom ratio if provided, otherwise 50/50
+      const ratio = mcqRatio !== undefined ? mcqRatio : 50;
+      totalMCQ = Math.round(questionCount * (ratio / 100));
       totalFRQ = questionCount - totalMCQ;
     } else if (includesMCQ) {
       totalMCQ = questionCount;
@@ -243,116 +244,159 @@ export async function POST(request: NextRequest) {
       totalFRQ = questionCount;
     }
 
-    // Calculate number of batches needed
-    const totalQuestions = questionCount;
-    const numBatches = Math.ceil(totalQuestions / MAX_QUESTIONS_PER_BATCH);
+    // Create streaming response
+    const stream = new ReadableStream({
+      async start(controller) {
+        const sendEvent = (data: object) => {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        };
 
-    // Generate questions in batches
-    const allQuestions: Question[] = [];
-    const existingQuestionTexts: string[] = [];
+        try {
+          // Calculate number of batches needed
+          const totalQuestions = questionCount;
+          const numBatches = Math.ceil(totalQuestions / MAX_QUESTIONS_PER_BATCH);
 
-    for (let batch = 1; batch <= numBatches; batch++) {
-      const questionsRemaining = totalQuestions - allQuestions.length;
-      const questionsInThisBatch = Math.min(MAX_QUESTIONS_PER_BATCH, questionsRemaining);
+          // Generate questions in batches
+          const allQuestions: Question[] = [];
+          const existingQuestionTexts: string[] = [];
 
-      // Calculate MCQ/FRQ for this batch proportionally
-      const mcqRemaining = totalMCQ - allQuestions.filter(q => q.type === 'mcq').length;
-      const frqRemaining = totalFRQ - allQuestions.filter(q => q.type === 'frq').length;
+          for (let batch = 1; batch <= numBatches; batch++) {
+            const questionsRemaining = totalQuestions - allQuestions.length;
+            const questionsInThisBatch = Math.min(MAX_QUESTIONS_PER_BATCH, questionsRemaining);
 
-      let batchMCQ = 0;
-      let batchFRQ = 0;
+            // Send progress update
+            sendEvent({
+              type: 'progress',
+              current: allQuestions.length,
+              total: totalQuestions,
+              status: `Generating batch ${batch}/${numBatches}...`,
+            });
 
-      if (includesMCQ && includesFRQ) {
-        // Distribute evenly across batches
-        batchMCQ = Math.min(Math.ceil(questionsInThisBatch / 2), mcqRemaining);
-        batchFRQ = Math.min(questionsInThisBatch - batchMCQ, frqRemaining);
-        // If one type is exhausted, fill with the other
-        if (batchMCQ + batchFRQ < questionsInThisBatch) {
-          if (mcqRemaining > batchMCQ) {
-            batchMCQ = questionsInThisBatch - batchFRQ;
-          } else {
-            batchFRQ = questionsInThisBatch - batchMCQ;
+            // Calculate MCQ/FRQ for this batch proportionally
+            const mcqRemaining = totalMCQ - allQuestions.filter(q => q.type === 'mcq').length;
+            const frqRemaining = totalFRQ - allQuestions.filter(q => q.type === 'frq').length;
+
+            let batchMCQ = 0;
+            let batchFRQ = 0;
+
+            if (includesMCQ && includesFRQ) {
+              batchMCQ = Math.min(Math.ceil(questionsInThisBatch * (totalMCQ / totalQuestions)), mcqRemaining);
+              batchFRQ = Math.min(questionsInThisBatch - batchMCQ, frqRemaining);
+              if (batchMCQ + batchFRQ < questionsInThisBatch) {
+                if (mcqRemaining > batchMCQ) {
+                  batchMCQ = questionsInThisBatch - batchFRQ;
+                } else {
+                  batchFRQ = questionsInThisBatch - batchMCQ;
+                }
+              }
+            } else if (includesMCQ) {
+              batchMCQ = questionsInThisBatch;
+            } else {
+              batchFRQ = questionsInThisBatch;
+            }
+
+            // Calculate difficulty distribution for this batch (equal thirds)
+            const easyCount = Math.floor(questionsInThisBatch / 3);
+            const mediumCount = Math.floor(questionsInThisBatch / 3);
+            const hardCount = questionsInThisBatch - easyCount - mediumCount;
+
+            try {
+              const batchQuestions = await generateBatch(
+                contentSummary,
+                isFromPrompt,
+                batchMCQ,
+                batchFRQ,
+                batch,
+                existingQuestionTexts,
+                { easy: easyCount, medium: mediumCount, hard: hardCount }
+              );
+
+              // Add new question texts to avoid duplicates
+              for (const q of batchQuestions) {
+                existingQuestionTexts.push(q.question.substring(0, 100));
+              }
+
+              allQuestions.push(...batchQuestions);
+
+              // Send progress update after batch completion
+              sendEvent({
+                type: 'progress',
+                current: allQuestions.length,
+                total: totalQuestions,
+                status: `Generated ${allQuestions.length}/${totalQuestions} questions`,
+              });
+            } catch (batchError) {
+              console.error(`Error generating batch ${batch}:`, batchError);
+              if (allQuestions.length === 0) {
+                throw batchError;
+              }
+            }
           }
+
+          // Generate title based on content
+          let title = 'Practice Test';
+          if (isFromPrompt) {
+            const words = contentSummary.split(' ').slice(0, 5).join(' ');
+            title = `Practice Test: ${words}${contentSummary.split(' ').length > 5 ? '...' : ''}`;
+          }
+
+          // Final deduplication check
+          const seenQuestions = new Set<string>();
+          const uniqueQuestions = allQuestions.filter(q => {
+            const key = q.question.toLowerCase().substring(0, 80);
+            if (seenQuestions.has(key)) {
+              return false;
+            }
+            seenQuestions.add(key);
+            return true;
+          });
+
+          // Renumber questions after deduplication
+          const finalQuestions = uniqueQuestions.map((q, idx) => ({
+            ...q,
+            id: `q${idx + 1}`,
+          }));
+
+          const result = {
+            title,
+            questions: finalQuestions,
+            metadata: {
+              totalQuestions: finalQuestions.length,
+              mcqCount: finalQuestions.filter(q => q.type === 'mcq').length,
+              frqCount: finalQuestions.filter(q => q.type === 'frq').length,
+              difficultyBreakdown: {
+                easy: finalQuestions.filter(q => q.difficulty === 'easy').length,
+                medium: finalQuestions.filter(q => q.difficulty === 'medium').length,
+                hard: finalQuestions.filter(q => q.difficulty === 'hard').length,
+              },
+            },
+          };
+
+          // Send complete event
+          sendEvent({
+            type: 'complete',
+            data: result,
+          });
+
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        } catch (error) {
+          console.error('Generate practice test error:', error);
+          sendEvent({
+            type: 'error',
+            message: error instanceof Error ? error.message : 'Failed to generate practice test',
+          });
+          controller.close();
         }
-      } else if (includesMCQ) {
-        batchMCQ = questionsInThisBatch;
-      } else {
-        batchFRQ = questionsInThisBatch;
-      }
-
-      // Calculate difficulty distribution for this batch (equal thirds)
-      const easyCount = Math.floor(questionsInThisBatch / 3);
-      const mediumCount = Math.floor(questionsInThisBatch / 3);
-      const hardCount = questionsInThisBatch - easyCount - mediumCount;
-
-      try {
-        const batchQuestions = await generateBatch(
-          contentSummary,
-          isFromPrompt,
-          batchMCQ,
-          batchFRQ,
-          batch,
-          existingQuestionTexts,
-          { easy: easyCount, medium: mediumCount, hard: hardCount }
-        );
-
-        // Add new question texts to avoid duplicates
-        for (const q of batchQuestions) {
-          existingQuestionTexts.push(q.question.substring(0, 100));
-        }
-
-        allQuestions.push(...batchQuestions);
-      } catch (batchError) {
-        console.error(`Error generating batch ${batch}:`, batchError);
-        // Continue with other batches even if one fails
-        if (allQuestions.length === 0) {
-          throw batchError; // Fail if we have no questions at all
-        }
-      }
-    }
-
-    // Generate title based on content
-    let title = 'Practice Test';
-    if (isFromPrompt) {
-      const words = contentSummary.split(' ').slice(0, 5).join(' ');
-      title = `Practice Test: ${words}${contentSummary.split(' ').length > 5 ? '...' : ''}`;
-    }
-
-    // Final deduplication check
-    const seenQuestions = new Set<string>();
-    const uniqueQuestions = allQuestions.filter(q => {
-      const key = q.question.toLowerCase().substring(0, 80);
-      if (seenQuestions.has(key)) {
-        return false;
-      }
-      seenQuestions.add(key);
-      return true;
+      },
     });
 
-    // Renumber questions after deduplication
-    const finalQuestions = uniqueQuestions.map((q, idx) => ({
-      ...q,
-      id: `q${idx + 1}`,
-    }));
-
-    const result = {
-      title,
-      questions: finalQuestions,
-      metadata: {
-        totalQuestions: finalQuestions.length,
-        mcqCount: finalQuestions.filter(q => q.type === 'mcq').length,
-        frqCount: finalQuestions.filter(q => q.type === 'frq').length,
-        difficultyBreakdown: {
-          easy: finalQuestions.filter(q => q.difficulty === 'easy').length,
-          medium: finalQuestions.filter(q => q.difficulty === 'medium').length,
-          hard: finalQuestions.filter(q => q.difficulty === 'hard').length,
-        },
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
       },
-    };
-
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
     console.error('Generate practice test error:', error);
